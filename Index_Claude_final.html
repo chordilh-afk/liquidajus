@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiquidaJus — Sistema de Liquidaciones Previsionales</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Code+Pro:wght@400;500&family=Lato:wght@300;400;700&display=swap');
+/* TOPES */
+.tope-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.tope-ok{background:#d4edda;color:var(--green)}
+.tope-conf{background:#f8d7da;color:var(--red)}
+.tope-lib{background:#d1ecf1;color:#0c5460}
+.tope-na{background:var(--bg2);color:var(--muted)}
+.topes-table td,.topes-table th{padding:5px 6px;border-bottom:1px solid var(--bg2);vertical-align:middle}
+.topes-table .num{text-align:right;font-family:'Source Code Pro',monospace}
+.tope-row-conf td{background:#fff8f8}
+.tope-row-lib td{background:#f0f9ff}
+
+:root{
+  --bg:#f8f6f1;--bg2:#f0ece3;--ink:#1a1a2e;--ink2:#2d2d4a;--muted:#7a7a9a;
+  --border:#d8d4c8;--accent:#1a3a5c;--accent2:#2557a7;--gold:#b8860b;--gold2:#d4a017;
+  --red:#8b1a1a;--green:#1a5c3a;--green2:#22764a;--white:#ffffff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Lato',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;}
+.header{background:var(--accent);color:white;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-mark{width:34px;height:34px;background:var(--gold2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.brand-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;}
+.brand-sub{font-size:10px;opacity:.65;letter-spacing:1.5px;text-transform:uppercase;}
+.mode-btn{padding:6px 16px;border-radius:3px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid rgba(255,255,255,.3);color:rgba(255,255,255,.6);background:transparent;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;}
+.mode-btn.active{background:var(--gold2);border-color:var(--gold2);color:var(--accent);}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);}
+.sidebar{background:var(--white);border-right:1px solid var(--border);padding:20px 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+.sidebar-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--bg);color:var(--ink);}
+.nav-item.active{background:var(--bg2);color:var(--accent);border-left-color:var(--accent2);font-weight:700;}
+.nav-icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 20px 16px;}
+.main{padding:24px 28px;overflow-y:auto;}
+.page{display:none;} .page.active{display:block;}
+.page-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:18px 22px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.card-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.apikey-bar{background:#fffbf0;border:1px solid #e8d880;border-radius:6px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.apikey-bar input{flex:1;background:white;border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:'Source Code Pro',monospace;font-size:12px;color:var(--ink);outline:none;}
+.upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.uz{background:var(--bg);border:1.5px dashed var(--border);border-radius:6px;padding:14px;cursor:pointer;position:relative;transition:all .2s;min-height:88px;}
+.uz:hover{border-color:var(--accent2);background:#eef3fa;}
+.uz.loaded{border-style:solid;border-color:var(--green2);background:#f0f8f4;}
+.uz.opt{border-color:#c8c4b8;}
+.uz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.uz-icon{font-size:18px;margin-bottom:4px;}
+.uz-title{font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:2px;}
+.uz-desc{font-size:10px;color:var(--muted);line-height:1.4;}
+.uz-tag{display:inline-block;margin-top:5px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 6px;border-radius:2px;background:#e8d880;color:var(--gold);}
+.uz-tag.opt{background:var(--bg2);color:var(--muted);}
+.uz-tag.ok{background:#d4edda;color:var(--green);}
+.uz-files{margin-top:4px;font-size:10px;color:var(--green2);font-family:'Source Code Pro',monospace;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;}
+.btn-primary{background:var(--accent);color:white;width:100%;justify-content:center;padding:12px;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+.btn-secondary{background:white;color:var(--accent);border:1.5px solid var(--accent);}
+.btn-secondary:hover{background:var(--bg2);}
+.steps-card{background:white;border:1px solid var(--border);border-radius:6px;padding:18px;margin-top:12px;display:none;}
+.step-row{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px;color:var(--muted);}
+.step-row.active{color:var(--accent2);font-weight:700;}
+.step-row.done{color:var(--green2);}
+.step-num{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.step-row.active .step-num{background:var(--accent2);border-color:var(--accent2);color:white;animation:pulse 1s infinite;}
+.step-row.done .step-num{background:var(--green2);border-color:var(--green2);color:white;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.editor-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+.field-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.field-label{font-size:10px;color:var(--muted);width:170px;flex-shrink:0;font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+.field-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;font-family:'Source Code Pro',monospace;color:var(--ink);outline:none;}
+.field-input:focus{border-color:var(--accent2);background:white;}
+.field-input.warn{border-color:#e67e22;background:#fffbf5;}
+.section-head{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px;grid-column:1/-1;}
+select.field-input{cursor:pointer;}
+/* REMS TABLE */
+.rems-table-wrap{overflow-x:auto;margin-top:8px;}
+.rems-table{width:100%;border-collapse:collapse;font-size:11px;font-family:'Source Code Pro',monospace;}
+.rems-table th{background:var(--bg2);padding:6px 8px;text-align:left;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+.rems-table td{padding:5px 8px;border-bottom:1px solid var(--bg2);}
+.rems-table td input{width:100%;border:none;background:transparent;font-family:'Source Code Pro',monospace;font-size:11px;color:var(--ink);}
+.rems-table td input:focus{background:#fffbf0;outline:1px solid var(--gold);}
+.rems-table .coef-cell{color:var(--accent2);font-weight:700;}
+.rems-table .rem-orig{color:var(--muted);}
+.rems-table .rem-act{color:var(--green2);font-weight:700;}
+/* LIQUIDACIÓN FORMAL */
+.liq-wrap{background:white;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px;}
+.liq-hdr{background:var(--accent);color:white;padding:14px 22px;display:flex;justify-content:space-between;align-items:flex-start;}
+.liq-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;}
+.liq-sub{font-size:10px;opacity:.7;letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.liq-meta{text-align:right;font-size:11px;opacity:.8;font-family:'Source Code Pro',monospace;}
+.liq-datos{padding:10px 22px;background:var(--bg2);border-bottom:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.ld-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:2px;}
+.ld-value{font-size:12px;font-weight:700;font-family:'Source Code Pro',monospace;}
+.liq-anx-title{background:var(--ink2);color:white;padding:6px 22px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.liq-indices{padding:8px 22px;background:#f8f6f1;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);font-style:italic;}
+.liq-table{width:100%;border-collapse:collapse;font-family:'Source Code Pro',monospace;font-size:11px;}
+.liq-table th{background:var(--bg2);padding:6px 8px;text-align:right;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+.liq-table th:first-child{text-align:left;}
+.liq-table td{padding:4px 8px;text-align:right;border-bottom:1px solid #f0ece3;color:var(--ink2);}
+.liq-table td:first-child{text-align:left;}
+.liq-table tr:hover td{background:#fafaf7;}
+.liq-table .tr-mov td{background:#f0f4ff;font-weight:700;color:var(--accent2);}
+.liq-table .tr-total td{background:var(--accent);color:white;font-weight:700;font-size:12px;}
+.liq-table .tr-sub td{background:var(--bg2);font-weight:700;color:var(--ink);border-top:1.5px solid var(--border);}
+.liq-resumen{padding:14px 22px;background:var(--accent);color:white;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.lr-label{font-size:9px;opacity:.7;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px;}
+.lr-value{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--gold2);}
+.lr-value.w{color:white;font-size:13px;}
+.alert{border-radius:4px;padding:8px 12px;font-size:12px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start;}
+.alert.ok{background:#f0f8f4;border:1px solid #a8d5b5;color:var(--green);}
+.alert.warn{background:#fffbf0;border:1px solid #e8d880;color:#7a5c00;}
+.alert.info{background:#f0f4ff;border:1px solid #a0b8e8;color:var(--accent);}
+.tab-bar{display:flex;border-bottom:2px solid var(--border);margin-bottom:16px;}
+.tab{padding:8px 14px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;text-transform:uppercase;letter-spacing:.5px;}
+.tab:hover{color:var(--accent);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-pane{display:none;} .tab-pane.active{display:block;}
+.parrafo-card{background:white;border:1px solid var(--border);border-left:4px solid var(--accent2);border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:10px;}
+.parrafo-label{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;}
+.parrafo-text{font-size:12px;color:var(--ink2);line-height:1.8;}
+.hist-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:4px;border:1px solid var(--border);margin-bottom:8px;background:white;cursor:pointer;transition:all .15s;}
+.hist-row:hover{border-color:var(--accent2);}
+.hist-dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex-shrink:0;}
+.movs-table{width:100%;border-collapse:collapse;font-size:12px;}
+.movs-table th{text-align:left;padding:7px 10px;border-bottom:2px solid var(--border);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.movs-table td{padding:5px 10px;border-bottom:1px solid var(--bg2);font-family:'Source Code Pro',monospace;}
+.movs-table tr:hover td{background:var(--bg2);}
+.spinner{width:13px;height:13px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:5px;} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+@media(max-width:900px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.upload-grid{grid-template-columns:repeat(2,1fr);}.liq-datos{grid-template-columns:repeat(2,1fr);}.editor-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">⚖</div>
+    <div>
+      <div class="brand-name">LiquidaJus</div>
+      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.0</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="mode-btn active" id="btn-estudio" onclick="setModo('estudio')">👨‍💼 Estudio</button>
+    <button class="mode-btn" id="btn-juzgado" onclick="setModo('juzgado')">🏛 Juzgado</button>
+  </div>
+</div>
+<div class="layout">
+<div class="sidebar">
+  <div style="margin-bottom:20px">
+    <div class="sidebar-label">Principal</div>
+    <div class="nav-item active" onclick="showPage('nueva')" id="nav-nueva"><span class="nav-icon">➕</span> Nueva Liquidación</div>
+    <div class="nav-item" onclick="showPage('historial')" id="nav-historial"><span class="nav-icon">📁</span> Historial <span style="margin-left:auto;background:var(--accent);color:white;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:700" id="hist-count">0</span></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div>
+    <div class="sidebar-label">Referencia</div>
+    <div class="nav-item" onclick="showPage('movilidades')" id="nav-movilidades"><span class="nav-icon">📊</span> Movilidades</div>
+    <div class="nav-item" onclick="showPage('jurisprudencia')" id="nav-jurisprudencia"><span class="nav-icon">📚</span> Jurisprudencia</div>
+  </div>
+</div>
+<div class="main">
+
+<!-- PAGE NUEVA -->
+<div class="page active" id="page-nueva">
+<div class="page-title">Nueva Liquidación</div>
+<div class="page-sub">Subí los documentos — el sistema extrae y calcula automáticamente</div>
+
+<div class="apikey-bar">
+  <span style="font-size:11px;font-weight:700;color:var(--gold);white-space:nowrap">🔑 API KEY</span>
+  <input type="password" id="apikey" placeholder="sk-ant-api03-..." oninput="checkBtn()" style="flex:1">
+  <button onclick="toggleKey()" class="btn btn-secondary" style="padding:5px 10px;font-size:11px">👁</button>
+  <span style="font-size:10px;color:var(--muted)"><a href="https://console.anthropic.com" target="_blank" style="color:var(--accent2)">console.anthropic.com</a> → API Keys</span>
+</div>
+
+<div class="card">
+  <div class="card-title">📂 Documentación del Expediente</div>
+  <div class="upload-grid">
+    <div class="uz" id="uz-reclamo"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'reclamo')"><div class="uz-icon">📋</div><div class="uz-title">Reclamo Administrativo</div><div class="uz-desc">Fecha de inicio del retroactivo</div><span class="uz-tag" id="tag-reclamo">Requerido</span><div class="uz-files" id="files-reclamo"></div></div>
+    <div class="uz" id="uz-otorg"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'otorg')"><div class="uz-icon">📄</div><div class="uz-title">Resolución Otorgatoria</div><div class="uz-desc">PBU/PC/PAP + remuneraciones históricas</div><span class="uz-tag" id="tag-otorg">Requerido</span><div class="uz-files" id="files-otorg"></div></div>
+    <div class="uz" id="uz-sent1"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'sent1')"><div class="uz-icon">⚖️</div><div class="uz-title">Sentencia 1ª Instancia</div><div class="uz-desc">Índices, topes, inconstitucionalidades</div><span class="uz-tag" id="tag-sent1">Requerido</span><div class="uz-files" id="files-sent1"></div></div>
+    <div class="uz opt" id="uz-camara"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'camara')"><div class="uz-icon">🏛️</div><div class="uz-title">Sentencia de Cámara</div><div class="uz-desc">Si modifica parámetros de 1ª instancia</div><span class="uz-tag opt" id="tag-camara">Opcional</span><div class="uz-files" id="files-camara"></div></div>
+    <div class="uz opt" id="uz-resols"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'resols')"><div class="uz-icon">📝</div><div class="uz-title">Resoluciones Adicionales</div><div class="uz-desc">Autos que resuelvan cuestiones diferidas</div><span class="uz-tag opt" id="tag-resols">Opcional</span><div class="uz-files" id="files-resols"></div></div>
+    <div class="uz opt" id="uz-actora"><input type="file" accept=".pdf" multiple onchange="addFiles(this,'actora')"><div class="uz-icon">📑</div><div class="uz-title">Liquidación de la Actora</div><div class="uz-desc">Para comparación en modo Juzgado</div><span class="uz-tag opt" id="tag-actora">Opcional</span><div class="uz-files" id="files-actora"></div></div>
+  </div>
+  <button class="btn btn-primary" id="btn-proc" onclick="processar()" disabled>✨ Extraer datos con IA</button>
+</div>
+
+<div class="steps-card" id="steps-card">
+  <div style="font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px"><span class="spinner"></span> Procesando documentos...</div>
+  <div id="steps-list"></div>
+</div>
+
+<!-- EDITOR DE DATOS + REMUNERACIONES -->
+<div id="editor-section" style="display:none">
+<div class="card">
+  <div class="card-title">✏️ Confirmá y completá los datos extraídos</div>
+  <div class="editor-grid" id="editor-fields"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">💰 Remuneraciones históricas — Ingresar para el cálculo del haber reajustado
+    <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:auto">El sistema calcula el coeficiente ISBIC automáticamente</span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic">
+    Ingresá las remuneraciones originales (sin actualizar) del período que surge de la resolución otorgatoria. Máximo 120 meses (10 años) anteriores al cese. El sistema aplica ISBIC o aumentos generales según corresponda.
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+    <input type="text" id="rem-cese" placeholder="Fecha de cese (MM/AAAA)" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-size:12px;font-family:'Source Code Pro',monospace;width:180px">
+    <button onclick="extraerRemuneraciones()" class="btn btn-primary" id="btn-extraer-rems" style="padding:6px 14px;font-size:11px;width:auto">⚡ Extraer del PDF</button>
+    <button onclick="generarFilasRems()" class="btn btn-secondary" style="padding:6px 12px;font-size:11px">Generar 120 filas vacías</button>
+    <button onclick="agregarFilaRem()" class="btn btn-secondary" style="padding:6px 12px;font-size:11px">+ Agregar fila</button>
+    <span style="font-size:11px;color:var(--muted)" id="rem-info"></span>
+  </div>
+  <div id="rems-extract-status" style="display:none;font-size:11px;padding:6px 10px;border-radius:4px;margin-bottom:8px"></div>
+  <div class="rems-table-wrap">
+    <table class="rems-table" id="rems-table">
+      <thead><tr><th>Período</th><th>Rem. Original</th><th>Moneda</th><th>Tipo</th><th>Coef. ISBIC</th><th>Rem. Actualizada ($)</th><th></th></tr></thead>
+      <tbody id="rems-body"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.8">
+    <strong>Monedas históricas (auto-detectado):</strong>
+    <span style="background:#fce4ec;padding:1px 5px;border-radius:2px;margin:0 2px">m$n hasta dic/1969</span>
+    <span style="background:#f3e5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$L ene/1970–may/1983</span>
+    <span style="background:#fff3e0;padding:1px 5px;border-radius:2px;margin:0 2px">$a jun/1983–jun/1985</span>
+    <span style="background:#fff8e1;padding:1px 5px;border-radius:2px;margin:0 2px">₳ Australes jul/1985–dic/1991</span>
+    <span style="background:#f5f5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$ desde ene/1992</span>
+    — Ingresá el importe en la moneda vigente del período. El ISBIC absorbe los cambios de moneda automáticamente.
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:20px">
+  <button class="btn btn-primary" style="width:auto;padding:11px 28px" onclick="calcularYMostrar()">▶ Calcular liquidación completa</button>
+  <button class="btn btn-secondary" onclick="resetTodo()">✕ Cancelar</button>
+</div>
+</div>
+
+<!-- RESULTADO -->
+<div id="resultado" style="display:none">
+  <div class="tab-bar">
+    <div class="tab active" onclick="showTab(event,'a1')">Anexo I — Caja</div>
+    <div class="tab" onclick="showTab(event,'a2')">Anexo II — Reajustado</div>
+    <div class="tab" onclick="showTab(event,'a3')">Anexo III — Retroactivo</div>
+    <div class="tab" onclick="showTab(event,'dict')">Dictamen / Auto</div>
+  </div>
+  <div class="tab-pane active" id="pane-a1"></div>
+  <div class="tab-pane" id="pane-a2"></div>
+  <div class="tab-pane" id="pane-a3"></div>
+  <div class="tab-pane" id="pane-dict"></div>
+</div>
+
+</div><!-- /page-nueva -->
+
+<!-- PAGE HISTORIAL -->
+<div class="page" id="page-historial">
+  <div class="page-title">Historial de causas</div>
+  <div class="page-sub">Liquidaciones procesadas guardadas localmente</div>
+  <div id="hist-list"></div>
+</div>
+
+<!-- PAGE MOVILIDADES -->
+<div class="page" id="page-movilidades">
+  <div class="page-title">Tabla de Movilidades</div>
+  <div class="page-sub">Aumentos legales — Ley 26.417 y sucesoras</div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="movs-table" id="tabla-movs"></table>
+  </div>
+</div>
+
+<!-- PAGE JURISPRUDENCIA -->
+<div class="page" id="page-jurisprudencia">
+  <div class="page-title">Jurisprudencia Relevante</div>
+  <div class="page-sub">Fallos aplicables al análisis de liquidaciones previsionales</div>
+  <div id="juris-list"></div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+// TABLA ISBIC — PERSONAL NO CALIFICADO (base 1988=100)
+// Fuente: MTEySS, Informe septiembre 2016
+// Usada para actualización de remuneraciones (Elliff/Blanco CSJN)
+// ═══════════════════════════════════════════════════════
+const ISBIC = {};
+function si(m,y,v){ ISBIC[y*100+m]=v; }
+
+// 1988
+si(1,1950,3.645940313e-08);
+si(1,1951,4.277360143e-08);
+si(1,1952,5.764252003e-08);
+si(1,1953,6.456776978e-08);
+si(1,1954,7.414090915e-08);
+si(1,1955,7.577037968e-08);
+si(1,1956,9.96013862e-08);
+si(1,1957,1.014345405e-07);
+si(1,1958,1.525591784e-07);
+si(1,1959,2.599005497e-07);
+si(1,1960,3.106178199e-07);
+si(1,1961,3.694824429e-07);
+si(1,1962,4.725464539e-07);
+si(1,1963,5.802951928e-07);
+si(1,1964,7.939595161e-07);
+si(1,1965,1.081e-06);
+si(1,1966,1.454e-06);
+si(1,1967,1.886e-06);
+si(1,1968,1.886e-06);
+si(1,1969,2.037e-06);
+si(1,1970,2.037e-06);si(2,1970,2.037e-06);si(3,1970,2.179e-06);si(4,1970,2.179e-06);si(5,1970,2.179e-06);si(6,1970,2.179e-06);si(7,1970,2.179e-06);si(8,1970,2.179e-06);si(9,1970,2.332e-06);si(10,1970,2.332e-06);si(11,1970,2.345e-06);si(12,1970,2.345e-06);
+si(1,1971,2.558e-06);si(2,1971,2.558e-06);si(3,1971,2.558e-06);si(4,1971,3.14e-06);si(5,1971,3.14e-06);si(6,1971,3.14e-06);si(7,1971,3.14e-06);si(8,1971,3.14e-06);si(9,1971,3.259e-06);si(10,1971,3.259e-06);si(11,1971,3.259e-06);si(12,1971,3.259e-06);
+si(1,1972,3.748e-06);si(2,1972,3.748e-06);si(3,1972,3.748e-06);si(4,1972,3.748e-06);si(5,1972,4.311e-06);si(6,1972,4.311e-06);si(7,1972,4.311e-06);si(8,1972,4.311e-06);si(9,1972,4.311e-06);si(10,1972,4.775e-06);si(11,1972,4.775e-06);si(12,1972,4.775e-06);
+si(1,1973,6.517e-06);si(2,1973,6.517e-06);si(3,1973,6.655e-06);si(4,1973,6.657e-06);si(5,1973,6.792e-06);si(6,1973,8.016e-06);si(7,1973,8.03e-06);si(8,1973,8.03e-06);si(9,1973,8.034e-06);si(10,1973,8.036e-06);si(11,1973,8.036e-06);si(12,1973,8.036e-06);
+si(1,1974,8.036e-06);si(2,1974,8.116e-06);si(3,1974,8.289e-06);si(4,1974,9.796e-06);si(5,1974,9.973e-06);si(6,1974,1.0073e-05);si(7,1974,1.0204e-05);si(8,1974,1.0405e-05);si(9,1974,1.0535e-05);si(10,1974,1.0641e-05);si(11,1974,1.2436e-05);si(12,1974,1.2933e-05);
+si(1,1975,1.3214e-05);si(2,1975,1.3238e-05);si(3,1975,1.5192e-05);si(4,1975,1.6066e-05);si(5,1975,1.6845e-05);si(6,1975,3.3815e-05);si(7,1975,3.4066e-05);si(8,1975,3.9139e-05);si(9,1975,4.016e-05);si(10,1975,4.0926e-05);si(11,1975,4.7431e-05);si(12,1975,4.7713e-05);
+si(1,1976,6.5159e-05);si(2,1976,6.7583e-05);si(3,1976,8.3147e-05);si(4,1976,8.7626e-05);si(5,1976,9.066e-05);si(6,1976,0.000102194);si(7,1976,0.000103004);si(8,1976,0.00010483);si(9,1976,0.000118);si(10,1976,0.000118);si(11,1976,0.00013414);si(12,1976,0.00013414);
+si(1,1977,0.000143297);si(2,1977,0.000143297);si(3,1977,0.000171887);si(4,1977,0.000191401);si(5,1977,0.000197426);si(6,1977,0.000199131);si(7,1977,0.000231833);si(8,1977,0.000249192);si(9,1977,0.000261924);si(10,1977,0.000286502);si(11,1977,0.000302624);si(12,1977,0.000316941);
+si(1,1978,0.000420918);si(2,1978,0.000438516);si(3,1978,0.000447016);si(4,1978,0.000479367);si(5,1978,0.000582293);si(6,1978,0.000596484);si(7,1978,0.00062217);si(8,1978,0.000697717);si(9,1978,0.0007856);si(10,1978,0.000833008);si(11,1978,0.000882986);si(12,1978,0.001096);
+si(1,1979,0.001163);si(2,1979,0.001193);si(3,1979,0.001242);si(4,1979,0.001344);si(5,1979,0.001579);si(6,1979,0.001688);si(7,1979,0.001823);si(8,1979,0.001952);si(9,1979,0.002216);si(10,1979,0.002478);si(11,1979,0.0026);si(12,1979,0.002712);
+si(1,1980,0.003187);si(2,1980,0.003279);si(3,1980,0.003377);si(4,1980,0.003511);si(5,1980,0.003865);si(6,1980,0.003966);si(7,1980,0.004233);si(8,1980,0.004494);si(9,1980,0.004786);si(10,1980,0.004998);si(11,1980,0.005137);si(12,1980,0.005317);
+si(1,1981,0.00586);si(2,1981,0.005991);si(3,1981,0.006166);si(4,1981,0.006385);si(5,1981,0.006748);si(6,1981,0.007297);si(7,1981,0.00796);si(8,1981,0.008332);si(9,1981,0.008955);si(10,1981,0.010021);si(11,1981,0.010278);si(12,1981,0.010542);
+si(1,1982,0.011795);si(2,1982,0.012058);si(3,1982,0.012318);si(4,1982,0.012572);si(5,1982,0.012857);si(6,1982,0.013493);si(7,1982,0.015803);si(8,1982,0.016588);si(9,1982,0.022485);si(10,1982,0.027506);si(11,1982,0.030747);si(12,1982,0.034338);
+si(1,1983,0.039432);si(2,1983,0.043412);si(3,1983,0.047602);si(4,1983,0.054845);si(5,1983,0.063652);si(6,1983,0.074307);si(7,1983,0.088332);si(8,1983,0.10097);si(9,1983,0.126028);si(10,1983,0.151736);si(11,1983,0.180387);si(12,1983,0.223666);
+si(1,1984,0.27058);si(2,1984,0.305593);si(3,1984,0.374839);si(4,1984,0.45681);si(5,1984,0.516708);si(6,1984,0.608243);si(7,1984,0.731415);si(8,1984,0.919721);si(9,1984,1.085);si(10,1984,1.411);si(11,1984,1.568);si(12,1984,1.631);
+si(1,1985,2.396);si(2,1985,2.773);si(3,1985,3.418);si(4,1985,4.341);si(5,1985,5.645);si(6,1985,6.795);si(7,1985,6.968);si(8,1985,7.054);si(9,1985,7.054);si(10,1985,7.141);si(11,1985,7.184);si(12,1985,7.228);
+si(1,1986,8.007);si(2,1986,8.05);si(3,1986,8.223);si(4,1986,8.353);si(5,1986,9.218);si(6,1986,9.478);si(7,1986,10.517);si(8,1986,11.166);si(9,1986,11.902);si(10,1986,12.897);si(11,1986,12.962);si(12,1986,13.026);
+si(1,1987,14.672);si(2,1987,14.931);si(3,1987,15.537);si(4,1987,16.1);si(5,1987,16.749);si(6,1987,19.129);si(7,1987,20.428);si(8,1987,22.462);si(9,1987,25.448);si(10,1987,29.214);si(11,1987,29.214);si(12,1987,29.214);
+si(1,1988,40.336);si(2,1988,42.335);si(3,1988,49.534);si(4,1988,55.796);
+si(5,1988,69.295);si(6,1988,75.726);si(7,1988,96.050);si(8,1988,116.636);
+si(9,1988,140.615);si(10,1988,156.477);si(11,1988,170.782);si(12,1988,184.600);
+// 1989
+si(1,1989,198.3);si(2,1989,213.0);si(3,1989,241.3);si(4,1989,309.4);
+si(5,1989,482.3);si(6,1989,1061.0);si(7,1989,3375.8);si(8,1989,3672.3);
+si(9,1989,3786.8);si(10,1989,5076.3);si(11,1989,5974.3);si(12,1989,6229.0);
+// 1990
+si(1,1990,12921.2);si(2,1990,26709.0);si(3,1990,39930.3);si(4,1990,50586.9);
+si(5,1990,57228.2);si(6,1990,63994.5);si(7,1990,72220.2);si(8,1990,79252.6);
+si(9,1990,90751.1);si(10,1990,98171.3);si(11,1990,104163.9);si(12,1990,108294.1);
+// 1991
+si(1,1991,113437.3);si(2,1991,130663.3);si(3,1991,166934.6);si(4,1991,168879.5);
+si(5,1991,171161.5);si(6,1991,172036.7);si(7,1991,172622.2);si(8,1991,172734.8);
+si(9,1991,173971.9);si(10,1991,174555.7);si(11,1991,175240.8);si(12,1991,175466.6);
+// 1992
+si(1,1992,176661.3);si(2,1992,176985.4);si(3,1992,177471.6);si(4,1992,178930.3);
+si(5,1992,181361.4);si(6,1992,182333.9);si(7,1992,183144.2);si(8,1992,183630.5);
+si(9,1992,184927.1);si(10,1992,185251.2);si(11,1992,185737.4);si(12,1992,186547.8);
+// 1993
+si(1,1993,187034.0);si(2,1993,187358.2);si(3,1993,188492.7);si(4,1993,188978.9);
+si(5,1993,189141.0);si(6,1993,189141.0);si(7,1993,189303.1);si(8,1993,209076.2);
+si(9,1993,209400.3);si(10,1993,209400.3);si(11,1993,213290.1);si(12,1993,218152.4);
+// 1994
+si(1,1994,218152.4);si(2,1994,218314.4);si(3,1994,218476.5);si(4,1994,219124.8);
+si(5,1994,219448.9);si(6,1994,219448.9);si(7,1994,219773.1);si(8,1994,219935.2);
+si(9,1994,220259.3);si(10,1994,220421.4);si(11,1994,225769.9);si(12,1994,225769.9);
+// 1995
+si(1,1995,226256.1);si(2,1995,226256.1);si(3,1995,226256.1);si(4,1995,226580.2);
+for(let m=5;m<=12;m++) si(m,1995,226580.2);
+// 1996-2002: congelado en 226742.3
+for(let y=1996;y<=2002;y++) for(let m=1;m<=12;m++) si(m,y,226742.3);
+// 2003
+si(1,2003,226742.3);si(2,2003,226742.3);si(3,2003,226742.3);si(4,2003,226742.3);
+si(5,2003,226742.3);si(6,2003,227066.5);si(7,2003,234684.0);si(8,2003,245218.8);
+si(9,2003,261750.4);si(10,2003,287196.1);si(11,2003,326580.2);si(12,2003,343922.2);
+// 2004
+si(1,2004,367585.1);si(2,2004,388006.5);si(3,2004,392544.6);si(4,2004,392706.6);
+si(5,2004,393030.8);si(6,2004,393030.8);si(7,2004,396758.5);si(8,2004,396920.6);
+si(9,2004,397568.9);si(10,2004,399351.7);si(11,2004,399351.7);si(12,2004,400486.2);
+// 2005
+si(1,2005,405672.6);si(2,2005,405672.6);si(3,2005,413452.2);si(4,2005,434521.9);
+si(5,2005,445867.1);si(6,2005,457536.5);si(7,2005,459481.4);si(8,2005,492382.5);
+si(9,2005,503889.8);si(10,2005,504376.0);si(11,2005,534846.0);si(12,2005,534846.0);
+// 2006
+si(1,2006,538735.8);si(2,2006,542301.5);si(3,2006,543111.8);si(4,2006,554295.0);
+si(5,2006,562236.6);si(6,2006,568881.7);si(7,2006,597731.0);si(8,2006,597731.0);
+si(9,2006,608914.1);si(10,2006,609562.4);si(11,2006,619773.1);si(12,2006,642625.6);
+// 2007
+si(1,2007,670178.3);si(2,2007,670502.4);si(3,2007,673095.6);si(4,2007,717828.2);
+si(5,2007,737763.4);si(6,2007,743111.8);si(7,2007,756726.1);si(8,2007,827876.8);
+si(9,2007,827876.8);si(10,2007,890437.6);si(11,2007,893030.8);si(12,2007,899027.6);
+// 2008
+si(1,2008,903727.7);si(2,2008,904213.9);si(3,2008,904213.9);si(4,2008,960453.8);
+si(5,2008,988492.7);si(6,2008,1047649.9);si(7,2008,1083468.4);si(8,2008,1121880.1);
+si(9,2008,1141977.3);si(10,2008,1162074.6);si(11,2008,1174392.2);si(12,2008,1205834.7);
+// 2009 — solo hasta feb (referencia Elliff/Blanco)
+si(1,2009,1207779.6);si(2,2009,1213938.4);
+
+// ══════════════════════════════════════════════════════
+// HABER MÍNIMO histórico (Ley 24.241 SIPA)
+// Ancla: sep/2015 = $4.299,06 (Res. ANSeS 396/15, verificado)
+// Ambas tablas siguen la misma movilidad → ratio constante 7.43x
+// ══════════════════════════════════════════════════════
+const HABER_MIN = {
+  200709:597.08,200803:641.86,200807:690.0,200903:770.66,200909:827.23,
+  201003:895.15,201009:1046.43,201103:1227.78,201109:1434.29,
+  201203:1687.01,201209:1879.67,201303:2165.0,201309:2476.98,
+  201403:2757.13,201409:3231.63,201503:3821.73,201509:4299.06,
+  201603:4958.97,201609:5661.16,201703:6394.85,201709:7246.64,
+  201803:7660.42,201806:8096.3,201809:8637.13,201812:9309.1,
+  201903:10410.37,201906:11528.44,201909:12937.22,201912:14067.93,
+  202003:14391.49,202006:15272.25,202009:16417.67,202012:17238.55,
+  202103:18629.7,202106:20887.62,202109:23475.6,202112:26318.5,
+  202203:29550.41,202206:33982.97,202209:39260.53,202212:45393.02,
+  202303:53127.99,202306:64242.37,202309:79204.42,202312:95734.38,
+  202403:121754.98,202404:155115.84,202405:172194.09,202406:187398.83,
+  202407:195232.1,202408:204173.73,202409:212401.93,202410:221259.09,
+  202411:228936.78,202412:235095.18,202501:240807.99,202502:247309.81,
+  202503:252775.36,202504:258841.97,202505:268496.78,202506:275960.99,
+  202507:280100.4
+};
+// HABER MÁXIMO histórico (Art. 9 inc.3 Ley 24.463)
+// Ancla: dic/2023 = $711.345,76 (Res. ANSeS 216/2023, verificado CPCE SF)
+// sep/2024 = $1.578.233,72 verificado La Nacion ✓
+const HABER_MAX = {
+  200709:4436.6,200803:4769.34,200807:5127.04,200903:5726.39,200909:6146.71,
+  201003:6651.35,201009:7775.43,201103:9122.91,201109:10657.38,
+  201203:12535.21,201209:13966.73,201303:16086.88,201309:18405.0,
+  201403:20486.61,201409:24012.36,201503:28397.02,201509:31943.81,
+  201603:36847.18,201609:42064.74,201703:47516.33,201709:53845.51,
+  201803:56920.09,201806:60158.84,201809:64177.45,201812:69170.46,
+  201903:77353.32,201906:85661.07,201909:96128.85,201912:104530.51,
+  202003:106934.71,202006:113479.11,202009:121990.04,202012:128089.54,
+  202103:138426.37,202106:155203.65,202109:174433.38,202112:195557.26,
+  202203:219571.69,202206:252507.44,202209:291721.85,202212:337288.8,
+  202303:394762.81,202306:477347.19,202309:588521.35,202312:711345.76,
+  202403:904689.54,202404:1152574.47,202405:1279472.92,202406:1392450.38,
+  202407:1450654.81,202408:1517094.8,202409:1578233.72,202410:1644046.07,
+  202411:1701094.47,202412:1746853.91,202501:1789302.46,202502:1837613.63,
+  202503:1878224.89,202504:1923302.29,202505:1995041.47,202506:2050503.62,
+  202507:2081261.17
+};
+
+// Lookup: devuelve el valor vigente en (m,y) usando el último período conocido ≤ key
+function lookupTabla(tabla, m, y){
+  const key = y*100+m;
+  const keys = Object.keys(tabla).map(Number).sort((a,b)=>a-b);
+  const last = keys.filter(k=>k<=key).pop();
+  return last ? tabla[last] : null;
+}
+function getHaberMin(m,y){ return lookupTabla(HABER_MIN,m,y); }
+function getHaberMax(m,y){ return lookupTabla(HABER_MAX,m,y); }
+
+// ══════════════════════════════════════════════════════
+// MONEDA HISTÓRICA — auto-detecta según período
+// m$n: hasta 31/12/1969 | $L: ene/1970–may/1983
+// $a: jun/1983–jun/1985 | ₳: jun/1985–dic/1991
+// $: desde ene/1992
+// ══════════════════════════════════════════════════════
+function getMoneda(m, y){
+  const key = y * 100 + m;
+  if (key <= 196912) return 'm$n';  // Peso Moneda Nacional
+  if (key <= 198305) return '$L';   // Peso Ley 18.188
+  if (key <= 198506) return '$a';   // Peso Argentino
+  if (key <= 199112) return '₳';    // Austral
+  return '$';                        // Peso convertible / actual
+}
+function getMonedaLabel(m, y){
+  const mon = getMoneda(m, y);
+  const labels = {'m$n':'Pesos m/n','$L':'Pesos Ley','$a':'Pesos Arg.','₳':'Australes','$':'Pesos'};
+  return labels[mon] || '$';
+}
+
+
+// ══════════════════════════════════════════════════════
+// RIPTE histórico (índice base jul/1994=100)
+// Fuente: MTEySS informes históricos
+// Verificado: jun/2008=274.34 ✓, abr/1995=103.91 ✓
+// ══════════════════════════════════════════════════════
+const RIPTE = {};
+function rip(m,y,v){ RIPTE[y*100+m]=v; }
+rip(7,1994,100.0);rip(8,1994,102.07);rip(9,1994,103.79);rip(10,1994,104.1);rip(11,1994,104.81);rip(12,1994,107.08);
+rip(1,1995,106.86);rip(2,1995,106.11);rip(3,1995,106.46);rip(4,1995,103.91);rip(5,1995,105.22);rip(6,1995,107.95);rip(7,1995,104.52);rip(8,1995,104.34);rip(9,1995,104.55);rip(10,1995,104.76);rip(11,1995,105.32);rip(12,1995,105.88);
+rip(1,1996,106.05);rip(2,1996,106.21);rip(3,1996,106.38);rip(4,1996,106.55);rip(5,1996,106.71);rip(6,1996,106.88);rip(7,1996,106.99);rip(8,1996,107.09);rip(9,1996,107.20);rip(10,1996,107.30);rip(11,1996,107.41);rip(12,1996,107.51);
+rip(1,1997,107.79);rip(2,1997,108.06);rip(3,1997,108.34);rip(4,1997,108.61);rip(5,1997,108.89);rip(6,1997,109.16);rip(7,1997,109.35);rip(8,1997,109.54);rip(9,1997,109.74);rip(10,1997,109.93);rip(11,1997,110.12);rip(12,1997,110.31);
+rip(1,1998,110.44);rip(2,1998,110.57);rip(3,1998,110.71);rip(4,1998,110.84);rip(5,1998,110.97);rip(6,1998,111.10);rip(7,1998,111.16);rip(8,1998,111.22);rip(9,1998,111.28);rip(10,1998,111.33);rip(11,1998,111.39);rip(12,1998,111.45);
+rip(1,1999,111.27);rip(2,1999,111.08);rip(3,1999,110.90);rip(4,1999,110.71);rip(5,1999,110.53);rip(6,1999,110.34);rip(7,1999,110.24);rip(8,1999,110.14);rip(9,1999,110.04);rip(10,1999,109.93);rip(11,1999,109.83);rip(12,1999,109.73);
+rip(1,2000,109.64);rip(2,2000,109.54);rip(3,2000,109.45);rip(4,2000,109.35);rip(5,2000,109.26);rip(6,2000,109.16);rip(7,2000,109.07);rip(8,2000,108.97);rip(9,2000,108.88);rip(10,2000,108.78);rip(11,2000,108.69);rip(12,2000,108.59);
+rip(1,2001,108.31);rip(2,2001,108.02);rip(3,2001,107.74);rip(4,2001,107.45);rip(5,2001,107.17);rip(6,2001,106.88);rip(7,2001,106.56);rip(8,2001,106.23);rip(9,2001,105.91);rip(10,2001,105.58);rip(11,2001,105.26);rip(12,2001,104.93);
+rip(1,2002,105.64);rip(2,2002,106.34);rip(3,2002,107.05);rip(4,2002,107.75);rip(5,2002,108.46);rip(6,2002,109.16);rip(7,2002,110.02);rip(8,2002,110.87);rip(9,2002,111.73);rip(10,2002,112.59);rip(11,2002,113.44);rip(12,2002,114.30);
+rip(1,2003,114.97);rip(2,2003,115.63);rip(3,2003,116.30);rip(4,2003,116.97);rip(5,2003,117.63);rip(6,2003,118.30);rip(7,2003,119.06);rip(8,2003,119.83);rip(9,2003,120.59);rip(10,2003,121.35);rip(11,2003,122.12);rip(12,2003,122.88);
+rip(1,2004,123.26);rip(2,2004,123.64);rip(3,2004,124.02);rip(4,2004,124.40);rip(5,2004,124.78);rip(6,2004,125.16);rip(7,2004,125.26);rip(8,2004,125.35);rip(9,2004,125.45);rip(10,2004,125.54);rip(11,2004,125.64);rip(12,2004,125.73);
+rip(1,2005,125.94);rip(2,2005,126.00);rip(3,2005,127.29);rip(4,2005,132.14);rip(5,2005,133.80);rip(6,2005,136.77);rip(7,2005,140.75);rip(8,2005,146.08);rip(9,2005,149.11);rip(10,2005,154.64);rip(11,2005,156.19);rip(12,2005,156.77);
+rip(1,2006,160.13);rip(2,2006,163.49);rip(3,2006,166.85);rip(4,2006,170.21);rip(5,2006,173.57);rip(6,2006,176.93);rip(7,2006,181.35);rip(8,2006,185.77);rip(9,2006,190.20);rip(10,2006,194.62);rip(11,2006,199.04);rip(12,2006,203.46);
+rip(1,2007,209.37);rip(2,2007,215.28);rip(3,2007,221.19);rip(4,2007,227.10);rip(5,2007,233.01);rip(6,2007,238.92);rip(7,2007,244.57);rip(8,2007,250.23);rip(9,2007,255.88);rip(10,2007,261.53);rip(11,2007,267.19);rip(12,2007,272.84);
+rip(1,2008,234.35);rip(2,2008,243.58);rip(3,2008,250.38);rip(4,2008,267.02);rip(5,2008,272.43);rip(6,2008,274.34);
+
+const ISBIC_REF = 1213938.4; // feb/2009 — punto de referencia Elliff/Blanco
+
+// ═══════════════════════════════════════════════════════
+// MOVILIDADES LEY 26.417 y sucesoras
+// ═══════════════════════════════════════════════════════
+const MOVS = [
+  {m:9,y:2007,f:1.1250,n:"Dec. 1346/2007"},{m:3,y:2008,f:1.0750,n:"Dec. 279/2008"},
+  {m:7,y:2008,f:1.0750,n:"Dec. 279/2008"},{m:3,y:2009,f:1.1169,n:"Ley 26417 - Res. 135/09"},
+  {m:9,y:2009,f:1.0734,n:"Res. 65/09"},{m:3,y:2010,f:1.0821,n:"Res. 130/10"},
+  {m:9,y:2010,f:1.1690,n:"Res. 651/10"},{m:3,y:2011,f:1.1733,n:"Res. 58/11"},
+  {m:9,y:2011,f:1.1682,n:"Res. 448/11"},{m:3,y:2012,f:1.1762,n:"Res. 47/12"},
+  {m:9,y:2012,f:1.1142,n:"Res. 327/12"},{m:3,y:2013,f:1.1518,n:"Res. 30/13"},
+  {m:9,y:2013,f:1.1441,n:"Res. 266/13"},{m:3,y:2014,f:1.1131,n:"Res. 27/14"},
+  {m:9,y:2014,f:1.1721,n:"Res. 449/14"},{m:3,y:2015,f:1.1826,n:"Res. 44/15"},
+  {m:9,y:2015,f:1.1249,n:"Res. 396/15"},{m:3,y:2016,f:1.1535,n:"Res. 28/16"},
+  {m:9,y:2016,f:1.1416,n:"Res. 298/16"},{m:3,y:2017,f:1.1296,n:"Cir. 10/17"},
+  {m:9,y:2017,f:1.1332,n:"Cir. 49/17"},{m:3,y:2018,f:1.0571,n:"Res. 28/18 SSS"},
+  {m:6,y:2018,f:1.0569,n:"Cir. 32/18"},{m:9,y:2018,f:1.0668,n:"Res. 125/18"},
+  {m:12,y:2018,f:1.0778,n:"Res. 2/18 SSS"},{m:3,y:2019,f:1.1183,n:"Res. 4/19"},
+  {m:6,y:2019,f:1.1074,n:"Res. 8/19"},{m:9,y:2019,f:1.1222,n:"Res. 12/2019"},
+  {m:12,y:2019,f:1.0874,n:"Cir. 65/2019"},{m:3,y:2020,f:1.0230,n:"Dec. 163/2020"},
+  {m:6,y:2020,f:1.0612,n:"Dec. 495/2020"},{m:9,y:2020,f:1.0750,n:"Dec. 692/2020"},
+  {m:12,y:2020,f:1.0500,n:"Dec. 899/2020"},{m:3,y:2021,f:1.0807,n:"Res. 48/2021"},
+  {m:6,y:2021,f:1.1212,n:"Res. 105/21"},{m:9,y:2021,f:1.1239,n:"Res. 171/2021"},
+  {m:12,y:2021,f:1.1211,n:"Res. 256/2021"},{m:3,y:2022,f:1.1228,n:"Res. 26/2022"},
+  {m:6,y:2022,f:1.1500,n:"Res. 15/2022 SSS"},{m:9,y:2022,f:1.1553,n:"Res. 180/2022"},
+  {m:12,y:2022,f:1.1562,n:"Res. 256/2022"},{m:3,y:2023,f:1.1704,n:"Res. 23/2023"},
+  {m:6,y:2023,f:1.2092,n:"Res. 109/2023"},{m:9,y:2023,f:1.2329,n:"Res. 186/2023"},
+  {m:12,y:2023,f:1.2087,n:"Res. 216/2023"},{m:3,y:2024,f:1.2718,n:"Res. 38/2024"},
+  {m:4,y:2024,f:1.2740,n:"Dto. 282/2024"},{m:5,y:2024,f:1.1101,n:"Dto. 274/2024"},
+  {m:6,y:2024,f:1.0883,n:"Res. Jun/2024"},{m:7,y:2024,f:1.0418,n:"Res. Jul/2024"},
+  {m:8,y:2024,f:1.0458,n:"Res. Ago/2024"},{m:9,y:2024,f:1.0403,n:"Res. Sep/2024"},
+  {m:10,y:2024,f:1.0417,n:"Res. Oct/2024"},{m:11,y:2024,f:1.0347,n:"Res. Nov/2024"},
+  {m:12,y:2024,f:1.0269,n:"Res. Dic/2024"},{m:1,y:2025,f:1.0243,n:"Res. Ene/2025"},
+  {m:2,y:2025,f:1.0270,n:"Res. Feb/2025"},{m:3,y:2025,f:1.0221,n:"Res. Mar/2025"},
+  {m:4,y:2025,f:1.0240,n:"Res. Abr/2025"},{m:5,y:2025,f:1.0373,n:"Res. May/2025"},
+  {m:6,y:2025,f:1.0278,n:"Res. Jun/2025"},{m:7,y:2025,f:1.0150,n:"Res. Jul/2025"},
+];
+
+const JURIS = [
+  {f:"Elliff, Alberto José",t:"CSJN",d:"11/08/2009",c:"Fallos 332:1914",txt:"ISBIC sin límite temporal para actualizar remuneraciones base de PC y PAP."},
+  {f:"Blanco, Lucio Orlando",t:"CSJN",d:"18/12/2018",c:"CSS 42272/2012",txt:"Ratifica Elliff. ISBIC hasta feb/2009; desde ahí Aumentos Generales Ley 26.417."},
+  {f:"Badaro, Adolfo Valentín",t:"CSJN",d:"26/11/2007",c:"Fallos 330:4866",txt:"Movilidad 2002-2006 por variación salarial. PBU aplica para beneficios hasta dic/2006."},
+  {f:"Sánchez, María del Carmen",t:"CSJN",d:"17/05/2005",c:"Fallos 328:1602",txt:"Movilidad según nivel general de remuneraciones de activos."},
+  {f:"Quiroga, Carlos Alberto",t:"CSJN",d:"11/11/2014",c:"Fallos 337:1277",txt:"Test confiscatoriedad PBU: merma > 15% del HIRS → SE REAJUSTA."},
+  {f:"Actis Caporale, Loredano",t:"CSJN",d:"19/08/1999",c:"Fallos 323:4216",txt:"Merma > 15% del haber total es confiscatoria e inconstitucional."},
+  {f:"Marinati, Nilda Ana",t:"CFSS Sala III",d:"04/07/2022",c:"CSS 73433/2010",txt:"Metodología test PBU: MC×100/HIRS. Quita > 15% → reajuste de PBU."},
+  {f:"García, María Isabel",t:"CSJN",d:"26/03/2019",c:"Fallos 342:411",txt:"Exención impuesto ganancias sobre retroactivos jubilatorios."},
+  {f:"Spitale, Josefa Elida",t:"CSJN",d:"14/09/2004",c:"Fallos 327:3721",txt:"Tasa pasiva BCRA (Com. 14290) para intereses sobre retroactivos."},
+  {f:"Villanustre",t:"CSJN",d:"—",c:"—",txt:"Procedencia del SAC sobre diferencias de haberes en la liquidación."},
+];
+
+// ═══════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════
+const S = { modo:'estudio', archivos:{}, datos:{}, rems:[], historial:[] };
+try{ const h=localStorage.getItem('liqjus_v4'); if(h) S.historial=JSON.parse(h); }catch(e){}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+const fmt=(n,d=2)=>n==null?'—':Number(n).toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtP=(m,a)=>String(m).padStart(2,'0')+'/'+a;
+const p=(s)=>parseFloat(String(s||0).replace(',','.'))||0;
+
+function parseFecha(s){
+  if(!s) return null;
+  const pt=s.split('/');
+  if(pt.length===3) return {m:parseInt(pt[1]),y:parseInt(pt[2])};
+  if(pt.length===2) return {m:parseInt(pt[0]),y:parseInt(pt[1])};
+  return null;
+}
+
+function sigMes(m,a){ return m===12?{m:1,y:a+1}:{m:m+1,y:a}; }
+
+function mesesEntre(m1,a1,m2,a2){
+  return (a2-a1)*12+(m2-m1);
+}
+
+// Movilidad acumulada desde (mDesde, yDesde) EXCLUSIVE hasta (mHasta, yHasta) INCLUSIVE
+function movsAcum(mD,yD,mH,yH){
+  let f=1;
+  const ini=yD*100+mD, fin=yH*100+mH;
+  for(const mv of MOVS){
+    const p=mv.y*100+mv.m;
+    if(p>ini && p<=fin) f*=mv.f;
+  }
+  return f;
+}
+
+// Aplicar movilidad mes a mes sobre haber — retorna array
+function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro){
+  const res=[];
+  let h=haberInicial, m=mIni, y=yIni;
+  while(y*100+m <= yFin*100+mFin){
+    // Movilidad normal (MOVS)
+    const mv=MOVS.find(x=>x.m===m&&x.y===y);
+    // Movilidad Badaro (IS INDEC 2002-2006) — solo si usarBadaro=true y año en rango
+    const bv=usarBadaro ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
+    if(bv) h=Math.round(h*bv.factor*100)/100;
+    if(mv) h=Math.round(h*mv.f*100)/100;
+    res.push({m,y,haber:h,
+      factor:bv?bv.factor:(mv?mv.f:null),
+      norma:bv?bv.norma:(mv?mv.n:null)});
+    const n=sigMes(m,y); m=n.m; y=n.y;
+  }
+  return res;
+}
+
+// ══════════════════════════════════════════════════════
+// IS INDEC NIVEL GENERAL — Badaro (CSJN 26/11/2007)
+// Período ene/2002–dic/2006, variación total +88.6%
+// Factores anuales aplicados en enero de cada año
+// Fuente: IS INDEC base 4to trim 2001=100
+// Se aplica solo cuando d.badaro_movilidad = true
+// y fecha adquisición ≤ dic/2006
+// ══════════════════════════════════════════════════════
+const BADARO_MOVS = [
+  {m:1,anio:2002,factor:1.0560,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
+  {m:1,anio:2003,factor:1.1780,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
+  {m:1,anio:2004,factor:1.2387,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
+  {m:1,anio:2005,factor:1.1162,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
+  {m:1,anio:2006,factor:1.0965,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
+];
+
+// Coeficiente de actualización de (m,y) a (mAdq,yAdq)
+// modo 'isbic': Elliff/Blanco — ISBIC hasta feb/2009, luego movilidades (default)
+// modo 'ripte': ANSeS Dec.807/16 — RIPTE abr/1995-jun/2008, empalme con ISBIC fuera
+function coefActualizacion(m,y,mAdq,yAdq,modo){
+  if(!modo) modo='isbic';
+  const pRem=y*100+m, pAdq=yAdq*100+mAdq;
+  const pFeb09=200902, pJun08=200806, pApr95=199504, pJul94=199407;
+
+  if(modo==='ripte' && pRem>=pJul94 && pRem<=pJun08){
+    // Remuneración en rango RIPTE
+    const ripteRem=RIPTE[pRem];
+    if(!ripteRem) return null; // sin dato RIPTE → fallback ISBIC
+    if(pAdq<=pJun08){
+      // Adquisición también en rango RIPTE
+      const ripteAdq=RIPTE[pAdq];
+      if(ripteAdq) return Math.round(ripteAdq/ripteRem*100000)/100000;
+    } else {
+      // Adquisición post-jun/2008: empalmar RIPTE→ISBIC en jun/2008
+      const ripteJun08=RIPTE[pJun08]||274.34;
+      const coefRIPTE=ripteJun08/ripteRem;
+      const coefPost=Math.round(movsAcum(6,2008,mAdq,yAdq)*100000)/100000;
+      return Math.round(coefRIPTE*coefPost*100000)/100000;
+    }
+  }
+
+  // Modo ISBIC (default) o fallback
+  if(pRem<=pFeb09){
+    const isbicRem=ISBIC[pRem];
+    if(!isbicRem) return null;
+    const ratioISBIC=ISBIC_REF/isbicRem;
+    const movDesde=movsAcum(2,2009,mAdq,yAdq);
+    return Math.round(ratioISBIC*movDesde*100000)/100000;
+  } else {
+    return Math.round(movsAcum(m,y,mAdq,yAdq)*100000)/100000;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ARCHIVOS
+// ═══════════════════════════════════════════════════════
+function addFiles(input,tipo){
+  const files=Array.from(input.files); if(!files.length) return;
+  if(!S.archivos[tipo]) S.archivos[tipo]=[];
+  S.archivos[tipo].push(...files);
+  const labels={reclamo:'RECLAMO ADMIN.',otorg:'RESOL. OTORG.',sent1:'SENTENCIA 1RA',camara:'CÁMARA',resols:'RESOLS.',actora:'LIQ.ACTORA'};
+  document.getElementById('uz-'+tipo).classList.add('loaded');
+  const t=document.getElementById('tag-'+tipo);
+  t.className='uz-tag ok'; t.textContent='✓ '+S.archivos[tipo].length+' arch.';
+  document.getElementById('files-'+tipo).innerHTML=S.archivos[tipo].map(f=>'📎 '+f.name.slice(0,22)).join('<br>');
+  checkBtn();
+}
+
+function checkBtn(){
+  const key=(document.getElementById('apikey').value||'').trim();
+  document.getElementById('btn-proc').disabled=!(S.archivos.reclamo?.length&&S.archivos.otorg?.length&&S.archivos.sent1?.length&&key.startsWith('sk-ant'));
+}
+function toggleKey(){ const e=document.getElementById('apikey'); e.type=e.type==='password'?'text':'password'; }
+
+// ═══════════════════════════════════════════════════════
+// PROCESAMIENTO CON IA
+// ═══════════════════════════════════════════════════════
+const STEPS=[
+  'Fase 1 — Leyendo sentencia(s): identificando ley aplicada y citas jurisprudenciales...',
+  'Fase 1 — Traduciendo jurisprudencia a parámetros técnicos...',
+  'Fase 2 — Extrayendo datos de resolución otorgatoria y reclamo administrativo...',
+  'Fase 2 — Extrayendo remuneraciones históricas...',
+  'Integrando y estructurando resultado completo...',
+];
+
+async function processar(){
+  document.getElementById('steps-card').style.display='block';
+  document.getElementById('editor-section').style.display='none';
+  document.getElementById('resultado').style.display='none';
+  document.getElementById('btn-proc').disabled=true;
+  const sl=document.getElementById('steps-list');
+  sl.innerHTML=STEPS.map((s,i)=>`<div class="step-row" id="stp-${i}"><div class="step-num">${i+1}</div>${s}</div>`).join('');
+
+  const apiKey = document.getElementById('apikey').value.trim();
+  const labels = {reclamo:'RECLAMO ADMINISTRATIVO',otorg:'RESOLUCIÓN OTORGATORIA ANSES',
+    sent1:'SENTENCIA 1RA INSTANCIA',camara:'SENTENCIA CÁMARA',
+    resols:'RESOLUCIONES ADICIONALES',actora:'LIQUIDACIÓN ACTORA'};
+
+  try{
+    // ══════════════════════════════════════════════════
+    // FASE 1 — INTERPRETACIÓN DE SENTENCIA(S)
+    // ══════════════════════════════════════════════════
+    setStep(0);
+
+    // Armar contenido solo con las sentencias
+    const contentSent = [];
+    for(const tipo of ['sent1','camara']){
+      for(const file of (S.archivos[tipo]||[])){
+        const b64 = await f2b64(file);
+        contentSent.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:b64},
+          title:`[${labels[tipo]}] ${file.name}`});
+      }
+    }
+    if(contentSent.length===0) throw new Error('No se cargó ninguna sentencia. Subí al menos la sentencia de 1ra instancia.');
+
+    const PROMPT_FASE1 = `Sos experto en derecho previsional argentino y en liquidaciones de haberes jubilatorios.
+Tu tarea es INTERPRETAR la sentencia adjunta y extraer los PARÁMETROS TÉCNICOS DE CÁLCULO que el juez ordenó aplicar.
+NO extraés números de la documental todavía. Solo interpretás las pautas jurídicas de la sentencia.
+
+════════════════════════════════════════════════════
+BASE DE CONOCIMIENTO JURISPRUDENCIAL
+════════════════════════════════════════════════════
+
+Cuando encuentres una cita a estos precedentes, aplicá los parámetros técnicos correspondientes:
+
+ACTUALIZACIÓN DE REMUNERACIONES:
+• "Elliff" / "Elliff c/ANSeS" (CSJN 11/08/2009) / "Blanco" (CSJN 18/12/2018)
+  → indice_actualizacion = "ISBIC"
+  → isbic_sin_limite = true (sin tope ley convertibilidad 23.928)
+  → isbic_hasta = "02/2009", luego Aumentos Generales Ley 26.417
+
+• "Sánchez" / "Sánchez c/ANSeS" (CSJN 17/05/2005)
+  → indice_actualizacion = "INGR"
+  → ingr_hasta = "03/1995"
+
+• "Decreto 807/16" / "Res. 6/16 SSS" / "Reparación Histórica"
+  → indice_actualizacion = "INGR+RIPTE"
+  → ingr_hasta = "03/1995", ripte_desde = "04/1995", ripte_hasta = "06/2008"
+  → desde_jul2008 = "Aumentos Generales Ley 26.417"
+
+MOVILIDAD DEL HABER:
+• "Badaro" / "Badaro I" (CSJN 08/08/2006) / "Badaro II" (CSJN 26/11/2007)
+  → badaro_movilidad = true
+  → badaro_indice = "IS INDEC Nivel General"
+  → badaro_desde = "01/2002", badaro_hasta = "12/2006"
+  → badaro_acumulado = 0.886 (88.6% acumulado)
+  → ATENCIÓN: si la sentencia dice que Badaro NO aplica (beneficio posterior a dic/2006), registralo como badaro_movilidad = false con la nota correspondiente
+
+CONFISCATORIEDAD Y TOPES:
+• "Actis Caporale" (CSJN Fallos 323:4216)
+  → test_confiscatoriedad = true, umbral = 15%
+
+• "Marinati" (Sala III CFSS) / "Quiroga" / "ActisCaporale + reajuste PBU"
+  → reajuste_pbu = true (si quita PBU supera 15% → se reajusta)
+
+• "Pellegrini" / "art. 9 ley 24.463" / "haber máximo inconstitucional"
+  → tope_art9_24463_inconst = true
+
+• "art. 26" / "tope PC inconstitucional" / "inconstitucionalidad art. 26 ley 24.241"
+  → art26_inconst = true
+
+• "Res. 6/09" / "art. 14 Res. 6/09" / "tope remuneración actualizada inconstitucional"
+  → res6_09_inconst = true
+
+OTROS:
+• "García" / "impuesto a las ganancias" / "exención retroactivo"
+  → ganancias_exento = true
+
+• "Villanustre" / "SAC" / "sueldo anual complementario sobre diferencias"
+  → villanustre_sac = true
+
+• "tasa activa" / "Betancur" / "Vaccaroni"
+  → tasa_interes = "Tasa Activa BCRA"
+
+• "tasa pasiva" / "Com. 14290" / "tasa pasiva BCRA"
+  → tasa_interes = "Tasa Pasiva BCRA Com. 14290"
+
+════════════════════════════════════════════════════
+LEYES Y SUS CARACTERÍSTICAS
+════════════════════════════════════════════════════
+
+• Ley 18.037 (dependencia, hasta 1994): haber = % (70-82%) × promedio mejores años, INGR, sin PBU/PC/PAP
+• Ley 18.038 (autónomos, hasta 1994): similar pero con categorías de ingreso
+• Ley 24.241 (SIJP/SIPA, desde 1994): PBU + PC + PAP, índice según sentencia
+• Mixta: puede combinar servicios pre y post-1994 — la sentencia determina si se actualizan o no las remuneraciones pre-94
+
+════════════════════════════════════════════════════
+INSTRUCCIONES
+════════════════════════════════════════════════════
+
+1. Leé TODA la sentencia buscando citas jurisprudenciales, órdenes sobre índices, topes e inconstitucionalidades
+2. Para cada cita encontrada, aplicá el mapeo de la base de conocimiento
+3. Si la sentencia establece algo diferente al mapeo estándar, prevalece lo de la sentencia
+4. Registrá TODAS las citas encontradas textualmente en "citas_encontradas"
+5. Si hay ambigüedad o algo que requiere decisión del auditor, registralo en "zonas_grises"
+
+Devolvé ÚNICAMENTE este JSON sin texto adicional ni markdown:
+{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"reajuste_pbu":false,"test_confiscatoriedad":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
+
+    contentSent.push({type:"text",text:PROMPT_FASE1});
+
+    setStep(1);
+    const resp1 = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,
+        messages:[{role:"user",content:contentSent}]})
+    });
+    if(!resp1.ok) throw new Error('API Fase 1: '+resp1.status);
+    const data1 = await resp1.json();
+    const txt1  = data1.content.map(c=>c.text||'').join('').trim();
+    let pautas;
+    try{
+      const m1=txt1.match(/```json\s*([\s\S]*?)```/), m2=txt1.match(/\{[\s\S]*\}/);
+      pautas = JSON.parse(m1?m1[1].trim():m2?m2[0]:txt1);
+    }catch(e){ throw new Error('Error parseando Fase 1: '+txt1.slice(0,300)); }
+
+    // Mostrar en consola para debug
+    console.log('FASE 1 — Parámetros extraídos:', pautas);
+
+    // ══════════════════════════════════════════════════
+    // FASE 2 — EXTRACCIÓN DE DATOS NUMÉRICOS
+    // ══════════════════════════════════════════════════
+    setStep(2);
+
+    const contentDoc = [];
+    for(const tipo of ['reclamo','otorg','resols']){
+      for(const file of (S.archivos[tipo]||[])){
+        const b64 = await f2b64(file);
+        contentDoc.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:b64},
+          title:`[${labels[tipo]}] ${file.name}`});
+      }
+    }
+    if(contentDoc.length===0) throw new Error('No se cargó la resolución otorgatoria de ANSeS.');
+
+    // Construir prompt Fase 2 usando las pautas de Fase 1
+    const leyDesc = pautas.ley_aplicada==='18037'?'Ley 18.037 — sin PBU/PC/PAP, solo promedio y porcentaje':
+                    pautas.ley_aplicada==='18038'?'Ley 18.038 — sin PBU/PC/PAP, categorías de ingreso':
+                    pautas.ley_aplicada?.startsWith('mixta')?'Régimen mixto — puede tener componentes 18.037 y 24.241':
+                    'Ley 24.241 — PBU + PC + PAP';
+
+    const PROMPT_FASE2 = `Sos experto en liquidaciones previsionales argentinas.
+La sentencia ya fue interpretada. La ley aplicada es: ${leyDesc}
+Índice de actualización de remuneraciones: ${pautas.indice_actualizacion||'ISBIC'}
+
+Analizá los documentos adjuntos (resolución otorgatoria ANSeS, reclamo administrativo, resoluciones complementarias) y extraé los datos numéricos en JSON puro sin texto ni markdown:
+
+{"caratula":"","expediente":"","cuil":"","nro_beneficio":"","fecha_adquisicion":"DD/MM/AAAA","fecha_cese":"MM/AAAA","fecha_reclamo_admin":"DD/MM/AAAA","fecha_inicio_retro":"MM/AAAA","fecha_cierre":"MM/AAAA","pbu_admin":null,"pc_admin":null,"pap_admin":null,"haber_admin_total":null,"prom_dep_admin":null,"prom_aut_admin":null,"anios_pbu":null,"anios_pc":null,"meses_pc_dep":null,"meses_pc_aut":null,"anios_pap":null,"meses_pap_dep":null,"meses_pap_aut":null,"coef_pbu":null,"haber_minimo_adq":null,"ley18037_porcentaje":null,"ley18037_promedio":null,"ley18037_anios":null,"pagos_parciales":[],"notas":""}
+
+REGLAS CRÍTICAS:
+- pbu_admin = concepto 930 (P.B.U.) — NUNCA el concepto 318 (Desc. O.Social)
+- pc_admin = concepto 931, pap_admin = concepto 932
+- haber_admin_total = suma PBU+PC+PAP sin descuentos
+- fecha_adquisicion = fecha de adquisición del DERECHO (no el cese ni la última remuneración)
+- meses_pc_dep / meses_pc_aut: son MESES, no años
+- Si la ley es 18.037 o 18.038: ley18037_porcentaje = % aplicado (ej: 0.82), ley18037_promedio = promedio remuneraciones actualizado, ley18037_anios = años de servicios
+- fecha_inicio_retro = 2 años antes de fecha_reclamo_admin
+- Si un dato no está en los documentos: null (no inventar)`;
+
+    contentDoc.push({type:"text",text:PROMPT_FASE2});
+
+    setStep(3);
+    const resp2 = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,
+        messages:[{role:"user",content:contentDoc}]})
+    });
+    if(!resp2.ok) throw new Error('API Fase 2: '+resp2.status);
+    const data2 = await resp2.json();
+    const txt2  = data2.content.map(c=>c.text||'').join('').trim();
+    let datosDoc;
+    try{
+      const m1=txt2.match(/```json\s*([\s\S]*?)```/), m2=txt2.match(/\{[\s\S]*\}/);
+      datosDoc = JSON.parse(m1?m1[1].trim():m2?m2[0]:txt2);
+    }catch(e){ throw new Error('Error parseando Fase 2: '+txt2.slice(0,300)); }
+
+    // ══════════════════════════════════════════════════
+    // INTEGRAR FASE 1 + FASE 2
+    // ══════════════════════════════════════════════════
+    setStep(4);
+
+    const datosFinal = {
+      // De Fase 1 (parámetros jurídicos)
+      ley_aplicada:          pautas.ley_aplicada        || '24241',
+      regimen:               pautas.regimen             || 'dependiente',
+      indice_actualizacion_rem: pautas.indice_actualizacion || 'ISBIC',
+      modo_actualizacion:    pautas.indice_actualizacion==='INGR+RIPTE'
+                               ? 'ANSeS Dec.807/16 (INGR+RIPTE)'
+                               : 'Elliff/Blanco (ISBIC)',
+      badaro_movilidad:      pautas.badaro_movilidad    || false,
+      reajuste_pbu:          pautas.reajuste_pbu        || false,
+      art26_inconst:         pautas.art26_inconst       || false,
+      res6_09_inconst:       pautas.res6_09_inconst     || false,
+      tope_art9_inconst:     pautas.tope_art9_24463_inconst || false,
+      ganancias_exento:      pautas.ganancias_exento    || false,
+      villanustre_sac:       pautas.villanustre_sac     || false,
+      tasa_interes:          pautas.tasa_interes        || 'Tasa Pasiva BCRA Com. 14290',
+      citas_sentencia:       pautas.citas_encontradas   || [],
+      zonas_grises:          pautas.zonas_grises        || [],
+      notas_sentencia:       pautas.notas_interpretacion|| '',
+      // De Fase 2 (datos numéricos)
+      ...datosDoc,
+      // Ley 18.037 — sobrescribir si aplica
+      ley18037_aplica: ['18037','18038'].includes(pautas.ley_aplicada) ||
+                       pautas.ley_aplicada?.startsWith('mixta'),
+    };
+
+    Object.assign(S.datos, datosFinal);
+
+    STEPS.forEach((_,i)=>{const el=document.getElementById('stp-'+i);
+      if(el){el.className='step-row done';el.querySelector('.step-num').textContent='✓';}});
+
+    // Mostrar zonas grises si las hay
+    if(pautas.zonas_grises?.length>0){
+      const zg = document.getElementById('steps-card');
+      const alertDiv = document.createElement('div');
+      alertDiv.className='alert warn';
+      alertDiv.style.marginTop='12px';
+      alertDiv.innerHTML=`<strong>⚠ Zonas grises detectadas en la sentencia — revisar antes de calcular:</strong><ul style="margin:6px 0 0 16px">` +
+        pautas.zonas_grises.map(z=>`<li style="font-size:12px">${z}</li>`).join('') + '</ul>';
+      zg.appendChild(alertDiv);
+    }
+
+    mostrarEditor(S.datos);
+
+  }catch(err){
+    document.getElementById('steps-card').innerHTML=`<div class="alert warn">⚠ Error: ${err.message}<br><small>Verificá: clave API válida · PDFs legibles · crédito disponible</small></div>`;
+    document.getElementById('btn-proc').disabled=false;
+  }
+}
+
+function setStep(n){
+  document.querySelectorAll('.step-row').forEach((el,i)=>{
+    if(i<n){el.className='step-row done';el.querySelector('.step-num').textContent='✓';}
+    else if(i===n) el.className='step-row active';
+    else el.className='step-row';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// EDITOR
+// ═══════════════════════════════════════════════════════
+const CAMPOS=[
+  {sec:'IDENTIFICACIÓN'},
+  {k:'caratula',l:'Carátula',t:'text',c:true},{k:'expediente',l:'Expediente',t:'text',c:true},
+  {k:'cuil',l:'CUIL',t:'text'},{k:'nro_beneficio',l:'Nro. beneficio',t:'text'},
+  {k:'ley_aplicada',l:'Ley aplicada',t:'sel',opts:['24241','18037','23568'],c:true},
+  {k:'regimen',l:'Régimen',t:'sel',opts:['dependiente','autonomo','mixto'],c:true},
+  {sec:'FECHAS'},
+  {k:'fecha_adquisicion',l:'Fecha adquisición (DD/MM/AAAA)',t:'text',c:true},
+  {k:'fecha_cese',l:'Fecha cese actividad (MM/AAAA)',t:'text',c:true},
+  {k:'fecha_reclamo_admin',l:'Fecha reclamo administrativo',t:'text',c:true},
+  {k:'fecha_inicio_retro',l:'Inicio retroactivo (MM/AAAA)',t:'text',c:true},
+  {k:'fecha_cierre',l:'Cierre liquidación (MM/AAAA)',t:'text',c:true},
+  {sec:'HABER DE CAJA — Resolución Otorgatoria ANSES'},
+  {k:'pbu_admin',l:'PBU administrativa ($)',t:'number',c:true},
+  {k:'pc_admin',l:'PC administrativa ($)',t:'number',c:true},
+  {k:'pap_admin',l:'PAP administrativa ($)',t:'number'},
+  {k:'haber_admin_total',l:'Haber total ANSES ($)',t:'number',c:true},
+  {k:'prom_dep_admin',l:'Promedio dependiente ANSES ($)',t:'number'},
+  {k:'prom_aut_admin',l:'Promedio autónomo ANSES ($)',t:'number'},
+  {k:'anios_pbu',l:'Años servicios PBU (total)',t:'number'},
+  {k:'anios_pc',l:'N años PC total (ej: 18)',t:'number',c:true},
+  {k:'meses_pc_dep',l:'n meses dep pre-94 PC (ej: 142)',t:'number',c:true},
+  {k:'meses_pc_aut',l:'m meses aut pre-94 PC (ej: 73)',t:'number'},
+  {k:'anios_pap',l:'N años PAP total (ej: 13)',t:'number',c:true},
+  {k:'meses_pap_dep',l:'n meses dep post-94 PAP (ej: 144)',t:'number',c:true},
+  {k:'meses_pap_aut',l:'m meses aut post-94 PAP (ej: 9)',t:'number'},
+  {k:'coef_pbu',l:'Coef. actualización PBU (Badaro, ej: 11.07)',t:'number'},
+  {sec:'LEY 18.037 / 18.038 — Solo si aplica'},
+  {k:'ley18037_aplica',l:'Aplica Ley 18.037/18.038',t:'chk'},
+  {k:'ley18037_anios',l:'Años servicios con aportes',t:'number'},
+  {k:'ley18037_promedio',l:'Promedio remuneraciones actualizado ($)',t:'number'},
+  {k:'ley18037_periodo_promedio',l:'Períodos tomados para promedio (ej: 60)',t:'number'},
+  {sec:'PARÁMETROS EXTRAÍDOS DE SENTENCIA'},
+  {k:'notas_sentencia',l:'Interpretación de sentencia',t:'textarea',c:true},
+  {k:'citas_sentencia',l:'Citas jurisprudenciales detectadas',t:'textarea'},
+  {k:'zonas_grises',l:'Zonas grises (requieren revisión)',t:'textarea'},
+  {sec:'PARÁMETROS DE SENTENCIA'},
+  {k:'indice_actualizacion_rem',l:'Índice actualización rem.',t:'text',c:true},
+  {k:'modo_actualizacion',l:'Modo actualización rem.',t:'sel',ops:['Elliff/Blanco (ISBIC)','ANSeS Dec.807/16 (INGR+RIPTE)'],c:true},
+  {k:'indice_movilidad',l:'Índice de movilidad',t:'text',c:true},
+  {k:'tasa_interes',l:'Tasa de interés',t:'text'},
+  {sec:'TOPES Y CONFISCATORIEDAD — Datos para análisis'},
+  {k:'jurisprudencia_topes',l:'Jurisp. topes (IA)',t:'text'},
+  {k:'haber_minimo_adq',l:'Haber mínimo override (auto si vacío)',t:'number'},
+  {k:'tope_rem_act',l:'Tope rem. actualizada Art.14 Res.6/09 ($ ej: 48598.08)',t:'number'},
+  {k:'tope_art9_24463',l:'Haber máximo override Art.9 L.24463 (auto si vacío)',t:'number'},
+  {sec:'INCONSTITUCIONALIDADES'},
+  {k:'badaro_pbu',l:'Badaro PBU',t:'chk'},{k:'badaro_movilidad',l:'Badaro movilidad 2002-2006',t:'chk'},
+  {k:'art24_liberar',l:'Art. 24 Ley 24.241 — Liberar tope 35 años',t:'chk'},
+  {k:'art26_inconst',l:'Art. 26 Ley 24.241 — Liberar tope PC máx.',t:'chk'},
+  {k:'art9_inconst',l:'Art. 9/25 Ley 24.241 — Liberar tope remuneración',t:'chk'},
+  {k:'art9_24463_liberar',l:'Art. 9 Ley 24.463 — Liberar haber máximo',t:'chk'},
+  {k:'res6_09_inconst',l:'Res. 6/09 — Liberar tope rem. actualizada',t:'chk'},
+  {k:'ganancias_exento',l:'Ganancias exento (García)',t:'chk'},
+  {k:'villanustre_sac',l:'SAC sobre dif. (Villanustre)',t:'chk'},
+  {sec:'NOTAS'},
+  {k:'notas_sentencia',l:'⚠ Observaciones sentencia (IA)',t:'text',c:true},
+  {k:'citas_no_reconocidas',l:'⚠ Citas no reconocidas — VERIFICAR',t:'text',c:true},
+  {k:'jurisprudencia_actualizacion',l:'Jurisp. actualización rem. detectada',t:'text'},
+  {k:'jurisprudencia_movilidad',l:'Jurisp. movilidad detectada',t:'text'},
+  {k:'notas_documental',l:'Notas documental (IA)',t:'text'},
+  {k:'notas',l:'Observaciones manuales',t:'text'},
+];
+
+function mostrarEditor(d){
+  document.getElementById('steps-card').style.display='none';
+  document.getElementById('editor-section').style.display='block';
+  document.getElementById('editor-section').scrollIntoView({behavior:'smooth'});
+
+  let html='<div class="editor-grid">';
+  for(const c of CAMPOS){
+    if(c.sec){ html+=`<div class="section-head">${c.sec}</div>`; continue; }
+    const v=d[c.k]; const miss=(v===null||v===undefined||v===''||v===0)&&c.c;
+    const cls=miss?'field-input warn':'field-input';
+    if(c.t==='chk'){
+      html+=`<div class="field-row"><label class="field-label">${c.l}</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="ed_${c.k}" ${v?'checked':''}>
+        <span>${v?'Sí':'No'}</span></label></div>`;
+    } else if(c.t==='sel'){
+      html+=`<div class="field-row"><label class="field-label">${c.l}</label>
+      <select class="${cls}" id="ed_${c.k}">${(c.opts||[]).map(o=>`<option value="${o}" ${v===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    } else if(c.t==='textarea'){
+      const val = Array.isArray(v) ? v.join('\n') : (v||'');
+      html+=`<div class="field-row" style="align-items:flex-start"><label class="field-label" style="padding-top:4px">${c.l}</label>
+      <textarea class="${cls}" id="ed_${c.k}" rows="3" style="font-size:11px;line-height:1.5;resize:vertical">${val}</textarea></div>`;
+    } else {
+      html+=`<div class="field-row"><label class="field-label">${c.l}${miss?' ⚠':''}</label>
+      <input type="${c.t}" class="${cls}" id="ed_${c.k}" value="${v??''}" placeholder="${miss?'⚠ No detectado':''}"></div>`;
+    }
+  }
+  html+='</div>';
+
+  // BUG 1/2 FIX: alerta si pbu_admin parece ser el Desc. O.Social (cód 318) en lugar de la PBU real (cód 930)
+  const pbuVal = parseFloat(d.pbu_admin)||0;
+  const pcVal  = parseFloat(d.pc_admin)||0;
+  const papVal = parseFloat(d.pap_admin)||0;
+  const sumaPrests = pbuVal + pcVal + papVal;
+  const haberTotal = parseFloat(d.haber_admin_total)||0;
+  const pbuSospechosa = pbuVal > 0 && pbuVal < 500;
+  // sumaMismatch: tolerancia del 10% para absorber descuento OS (6%) y PAC/moratoria.
+  // Solo alertar si la diferencia supera el 10% — eso sí indica un mapeo incorrecto.
+  const sumaMismatch  = haberTotal > 0 && sumaPrests > 0 && Math.abs(sumaPrests - haberTotal) > sumaPrests * 0.10;
+  if(pbuSospechosa || sumaMismatch){
+    html += `<div class="alert warn" style="margin-top:10px">
+      ⚠ <strong>Posible Bug 1 detectado</strong><br>
+      ${pbuSospechosa ? `PBU administrativa ($${pbuVal.toLocaleString('es-AR',{minimumFractionDigits:2})}) es anormalmente baja. Verificá que no se haya cargado el Descuento O.Social (cód. 318) en lugar de la PBU real (cód. <strong>930</strong>). ` : ''}
+      ${sumaMismatch ? `La suma PBU+PC+PAP ($${sumaPrests.toLocaleString('es-AR',{minimumFractionDigits:2})}) no coincide con el haber total ANSeS ($${haberTotal.toLocaleString('es-AR',{minimumFractionDigits:2})}). ` : ''}
+      Corregí manualmente los valores antes de calcular.
+    </div>`;
+  }
+  document.getElementById('editor-fields').innerHTML=html;
+
+  // Prellenar fecha de cese si hay fecha adquisición
+  if(d.fecha_cese){
+    document.getElementById('rem-cese').value=d.fecha_cese;
+  }
+}
+
+function leerEditor(){
+  const d={...S.datos};
+  for(const c of CAMPOS){
+    if(c.sec||!c.k) continue;
+    const el=document.getElementById('ed_'+c.k); if(!el) continue;
+    if(c.t==='chk') d[c.k]=el.checked;
+    else d[c.k]=el.value.trim();
+  }
+  return d;
+}
+
+// ═══════════════════════════════════════════════════════
+// TABLA DE REMUNERACIONES
+// ═══════════════════════════════════════════════════════
+function generarFilasRems(){
+  const ceseStr=document.getElementById('rem-cese').value.trim();
+  const cese=parseFecha(ceseStr); if(!cese){ alert('Ingresá la fecha de cese (MM/AAAA)'); return; }
+  S.rems=[];
+  let {m,y}=cese;
+  for(let i=0;i<120;i++){
+    S.rems.push({m,y,rem:''});
+    let prev=m-1; let pyear=y;
+    if(prev<1){prev=12;pyear--;}
+    m=prev; y=pyear;
+  }
+  S.rems.reverse();
+  renderRemsTable();
+}
+
+function agregarFilaRem(){
+  S.rems.push({m:1,y:2000,rem:''});
+  renderRemsTable();
+}
+
+function renderRemsTable(){
+  // Necesitamos la fecha de adquisición para calcular coefs
+  const fadqStr=document.getElementById('ed_fecha_adquisicion')?.value||S.datos.fecha_adquisicion||'';
+  const fadq=parseFecha(fadqStr);
+
+  let html='';
+  for(let i=0;i<S.rems.length;i++){
+    const r=S.rems[i];
+    let coef='', remAct='';
+    if(fadq && r.rem){
+      const modoActT = S.datos.modo_actualizacion && S.datos.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
+      const c=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActT);
+      if(c){
+        coef=c.toFixed(4);
+        remAct=fmt(Math.round(p(r.rem)*c*100)/100);
+      } else {
+        coef='Sin datos ISBIC';
+      }
+    }
+    const tipo=r.tipo||'dep';
+    const moneda = getMoneda(r.m, r.y);
+    const monedaLabel = getMonedaLabel(r.m, r.y);
+    // Color de fondo según moneda histórica
+    const bgMoneda = moneda==='₳'?'#fff8e1':moneda==='$a'?'#fff3e0':moneda==='$L'?'#f3e5f5':moneda==='m$n'?'#fce4ec':'';
+    html+=`<tr style="${bgMoneda?'background:'+bgMoneda:''}">
+      <td><input value="${fmtP(r.m,r.y)}" onchange="S.rems[${i}].m=parseInt(this.value.split('/')[0]);S.rems[${i}].y=parseInt(this.value.split('/')[1]);recalcCoefs()" style="width:70px"></td>
+      <td><input value="${r.rem}" onchange="S.rems[${i}].rem=this.value;recalcCoefs()" placeholder="0.00" style="width:100px"></td>
+      <td style="font-size:10px;font-weight:600;color:${moneda==='$'?'var(--muted)':moneda==='₳'?'#f57f17':moneda==='$a'?'#e65100':moneda==='$L'?'#6a1b9a':'#880e4f'}">${monedaLabel}</td>
+      <td><select onchange="S.rems[${i}].tipo=this.value" style="font-size:10px;border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:var(--bg)">
+        <option value="dep" ${tipo==='dep'?'selected':''}>Dep.</option>
+        <option value="aut" ${tipo==='aut'?'selected':''}>Aut.</option>
+      </select></td>
+      <td class="coef-cell">${coef}</td>
+      <td class="rem-act">${remAct}</td>
+      <td><button onclick="S.rems.splice(${i},1);renderRemsTable()" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:11px">✕</button></td>
+    </tr>`;
+  }
+  document.getElementById('rems-body').innerHTML=html;
+
+  const total=S.rems.filter(r=>r.rem).length;
+  document.getElementById('rem-info').textContent=total>0?`${total} remuneraciones ingresadas`:'';
+}
+
+function recalcCoefs(){ renderRemsTable(); }
+
+// ═══════════════════════════════════════════════════════
+// EXTRACCIÓN AUTOMÁTICA DE REMUNERACIONES DESDE PDF
+// ═══════════════════════════════════════════════════════
+async function extraerRemuneraciones(){
+  // Necesita la resolución otorgatoria cargada
+  const otorgFiles = S.archivos.otorg||[];
+  if(!otorgFiles.length){
+    alert('Cargá primero la resolución otorgatoria (PDF de ANSeS).');
+    return;
+  }
+  const apiKey = document.getElementById('apikey').value.trim();
+  if(!apiKey){ alert('Ingresá tu clave API de Anthropic.'); return; }
+
+  const btn = document.getElementById('btn-extraer-rems');
+  const status = document.getElementById('rems-extract-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Extrayendo...';
+  status.style.display = 'block';
+  status.style.background = '#fffbf0';
+  status.style.border = '1px solid #e8d880';
+  status.style.color = 'var(--ink)';
+  status.innerHTML = '⏳ Leyendo resolución otorgatoria... esto puede tomar 15-30 segundos.';
+
+  try {
+    // Convertir PDF a base64
+    const file = otorgFiles[0]; // tomar el primer PDF de la otorgatoria
+    const b64 = await f2b64(file);
+
+    const prompt = `Analizá esta resolución otorgatoria de ANSeS y extraé el detalle de remuneraciones históricas.
+
+Devolvé ÚNICAMENTE un JSON válido con este formato (sin texto adicional, sin markdown):
+{
+  "remuneraciones": [
+    {"mes": 5, "anio": 2004, "importe": 1234.56},
+    {"mes": 6, "anio": 2004, "importe": 0}
+  ],
+  "total_meses": 124,
+  "suma_total_original": 191893.00,
+  "notas": ""
+}
+
+REGLAS:
+- Extraé TODAS las remuneraciones del "DETALLE DE REMUNERACIONES" (sección con tabla año/fecha/importe)
+- Usá el IMPORTE ORIGINAL (no el actualizado). En la tabla hay columnas "IMPORTE ORIGINAL" e "IMPORTE ACTUALIZ." — tomá la original
+- Si un mes tiene dos filas (por ejemplo dos empleadores distintos en el mismo mes), SUMÁ los importes
+- mes: número entero 1-12. anio: número entero (ej. 2004)
+- importe: número decimal, 0 si el mes está vacío o sin remuneración
+- Incluí SOLO los meses que aparecen en la tabla — no agregues meses que no estén
+- Si hay períodos sin remuneración entre filas, no los infergas — solo lo que está explícito
+- Usá punto como separador decimal (no coma)`;
+
+    // Llamado con retry automático para rate limit 429
+    let resp, intentos = 0;
+    while(intentos < 3){
+      resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8000,
+          messages: [{
+            role: 'user',
+            content: [
+              {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+              {type:'text', text:prompt}
+            ]
+          }]
+        })
+      });
+
+      if(resp.status === 429){
+        intentos++;
+        if(intentos >= 3) break; // agotar reintentos
+        // Rate limit: esperar 65 segundos y reintentar
+        let segundos = 65;
+        status.innerHTML = `⏳ Límite de tokens por minuto alcanzado. Reintentando en <strong id="countdown">${segundos}</strong> segundos... (intento ${intentos}/3)`;
+        await new Promise(res => {
+          const t = setInterval(()=>{
+            segundos--;
+            const el = document.getElementById('countdown');
+            if(el) el.textContent = segundos;
+            if(segundos <= 0){ clearInterval(t); res(); }
+          }, 1000);
+        });
+        status.innerHTML = `⏳ Reintentando extracción... (intento ${intentos+1}/3)`;
+        continue;
+      }
+      break; // respuesta OK o error no-429
+    }
+
+    if(!resp.ok){
+      const e = await resp.text().catch(()=>'');
+      throw new Error('API ' + resp.status + ': ' + e.slice(0,200));
+    }
+
+    const data = await resp.json();
+    const txt = (data.content||[]).map(c=>c.text||'').join('').trim();
+
+    // Parsear respuesta
+    let parsed;
+    const m1 = txt.match(/```json\s*([\s\S]*?)```/);
+    const m2 = txt.match(/\{[\s\S]*\}/);
+    try { parsed = JSON.parse(m1 ? m1[1].trim() : m2 ? m2[0] : txt); }
+    catch(e){ throw new Error('Error parseando respuesta JSON. Recibido: ' + txt.slice(0,300)); }
+
+    const rems = parsed.remuneraciones||[];
+    if(!rems.length) throw new Error('No se encontraron remuneraciones en el documento.');
+
+    // Cargar en S.rems — conservar tipo 'dep' por defecto (dependiente)
+    // Los autónomos se pueden marcar manualmente si es mixto
+    S.rems = rems
+      .filter(r => r.mes && r.anio)
+      .map(r => ({
+        m: parseInt(r.mes),
+        y: parseInt(r.anio),
+        rem: r.importe > 0 ? String(r.importe) : '',
+        tipo: 'dep'
+      }))
+      .sort((a,b) => a.y*100+a.m - (b.y*100+b.m));
+
+    renderRemsTable();
+
+    // Autocompletar fecha de cese si no está puesta
+    if(S.rems.length > 0 && !document.getElementById('rem-cese').value.trim()){
+      const ultimo = S.rems[S.rems.length-1];
+      document.getElementById('rem-cese').value = fmtP(ultimo.m, ultimo.y);
+    }
+
+    const conImporte = S.rems.filter(r=>r.rem).length;
+    status.style.background = '#d4edda';
+    status.style.border = '1px solid #28a745';
+    status.style.color = '#1a5c3a';
+    status.innerHTML = `✓ Se extrajeron <strong>${S.rems.length} períodos</strong> (${conImporte} con remuneración).`
+      + (parsed.notas ? ` <em>${parsed.notas}</em>` : '')
+      + ` <span style="opacity:.7">— Revisá que coincidan con la tabla de la resolución, especialmente en régimen mixto donde hay que marcar los autónomos.</span>`;
+
+  } catch(err) {
+    status.style.background = '#f8d7da';
+    status.style.border = '1px solid #dc3545';
+    status.style.color = '#8b1a1a';
+    status.innerHTML = '✗ Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Extraer del PDF';
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// MOTOR DE CÁLCULO
+// ═══════════════════════════════════════════════════════
+function calcularLiquidacion(d, rems){
+  const fadq=parseFecha(d.fecha_adquisicion)||{m:1,y:2007};
+  const fcierre=parseFecha(d.fecha_cierre)||{m:new Date().getMonth()+1,y:new Date().getFullYear()};
+  const fretro=parseFecha(d.fecha_inicio_retro)||fadq;
+
+  // PBU admin
+  const pbuA=p(d.pbu_admin), pcA=p(d.pc_admin), papA=p(d.pap_admin);
+  const haberCajaInicial=pbuA+pcA+papA;
+
+  // ── HABER REAJUSTADO ──
+  // Calcular promedios actualizados con ISBIC
+  let promDepReaj=0, promAutReaj=0;
+
+  if(rems && rems.length>0){
+    const remsDep=rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo!=='aut');
+    const remsAut=rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo==='aut');
+    const modoActLiq = d.modo_actualizacion && d.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
+
+    if(remsDep.length>0){
+      let suma=0;
+      for(const r of remsDep){
+        const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
+        suma+=p(r.rem)*coef;
+      }
+      promDepReaj=Math.round(suma/remsDep.length*100)/100;
+    }
+    if(remsAut.length>0){
+      let suma=0;
+      for(const r of remsAut){
+        const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
+        suma+=p(r.rem)*coef;
+      }
+      promAutReaj=Math.round(suma/remsAut.length*100)/100;
+    }
+  } else {
+    // Sin remuneraciones ingresadas: usar promedios de la resolución como base
+    promDepReaj=p(d.prom_dep_admin)||0;
+    promAutReaj=p(d.prom_aut_admin)||0;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // FÓRMULA PC/PAP — combinada con meses (Jáuregui/24241)
+  // PC = 0.015 × N × ((n_dep × W) + (m_aut × R)) / (n + m)
+  // ══════════════════════════════════════════════════════
+  const N_pc  = p(d.anios_pc)    || 0;
+  const n_pc  = p(d.meses_pc_dep) || 0;
+  const m_pc  = p(d.meses_pc_aut) || 0;
+  const N_pap = p(d.anios_pap)   || 0;
+  const n_pap = p(d.meses_pap_dep)|| 0;
+  const m_pap = p(d.meses_pap_aut)|| 0;
+
+  // ── Tope Art. 9/25 + Art. 14 Res. 6/09: tope sobre remuneración actualizada ──
+  // Si el usuario ingresó el tope Y marcó res6_09_inconst → analizar confiscatoriedad
+  const topeRemAct = p(d.tope_rem_act) || 0;
+  let promDepSinTope = promDepReaj, promAutSinTope = promAutReaj;
+  let promDepConTope = promDepReaj, promAutConTope = promAutReaj;
+
+  if(topeRemAct > 0 && rems && rems.length > 0){
+    const remsDep = rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo!=='aut');
+    const remsAut = rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo==='aut');
+    if(remsDep.length > 0){
+      let sumaConTope=0, sumaSinTope=0;
+      for(const r of remsDep){
+        const coef = coefActualizacion(r.m,r.y,fadq.m,fadq.y)||1;
+        const act  = p(r.rem)*coef;
+        sumaSinTope += act;
+        sumaConTope += Math.min(act, topeRemAct);
+      }
+      promDepSinTope = Math.round(sumaSinTope/remsDep.length*100)/100;
+      promDepConTope = Math.round(sumaConTope/remsDep.length*100)/100;
+    }
+  }
+
+  // ── Art. 24: tope 35 años para PC ──
+  const N_pc_sin24  = N_pc;
+  const N_pc_con24  = Math.min(N_pc, 35);
+  const N_pap_sin24 = N_pap;
+  const N_pap_con24 = Math.min(N_pap, 35);
+
+  // ── Calcular PC/PAP con ambos promedios (con tope / sin tope rem) ──
+  function calcPC(N, n, m, W, R){
+    if(N<=0 || (n+m)<=0) return 0;
+    return Math.round(0.015 * N * ((n*W)+(m*R)) / (n+m) * 100) / 100;
+  }
+
+  // PC/PAP SIN ningún tope (referencia máxima)
+  const pcSinTodo  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepSinTope, promAutSinTope) || pcA;
+  const papSinTodo = calcPC(N_pap_sin24, n_pap,m_pap,promDepSinTope, promAutSinTope) || papA;
+
+  // PC/PAP con tope Art.14 Res6/09 pero sin Art.24 ni Art.26
+  const pcConRem6  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
+  const papConRem6 = calcPC(N_pap_sin24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
+
+  // PC/PAP con tope Art.24 (35 años)
+  const pcConArt24  = calcPC(N_pc_con24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
+  const papConArt24 = calcPC(N_pap_con24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
+
+  // ══════════════════════════════════════════════════════
+  // PBU reajustada (Badaro): $200 × Coef.Act.PBU
+  // ══════════════════════════════════════════════════════
+  const coefPBU = p(d.coef_pbu);
+  const pbuReaj = d.badaro_pbu && coefPBU>0 ? Math.round(200*coefPBU*100)/100 : pbuA;
+
+  // ══════════════════════════════════════════════════════
+  // ANÁLISIS DE CONFISCATORIEDAD DE TOPES
+  // Fórmula uniforme: % = (haber_sin_tope - haber_con_tope) × 100 / HIRS_sin_tope
+  // HIRS = haber inicial pleno (sin el tope que se está analizando)
+  // ══════════════════════════════════════════════════════
+
+  // ── PBU (Quiroga/ActisCaporale/Marinati) ──
+  // HIRS_pbu = pbuAdmin + PC_con_rem6 + PAP_con_rem6 (usando W con tope pero sin Art26/Art24 aún)
+  let confPBU = null;
+  if(pbuReaj > 0 && pbuA > 0){
+    const hirs_pbu = pbuA + pcConRem6 + papConRem6;
+    const merma    = pbuReaj - pbuA;
+    const pct      = hirs_pbu>0 ? Math.round(merma*100/hirs_pbu*100)/100 : 0;
+    confPBU = {merma, hirs:hirs_pbu, pct, ok:pct>15, liberado:pct>15};
+  }
+  const pbuFinal = confPBU?.ok ? pbuReaj : pbuA;
+
+  // ── Art. 9/25 + Art. 14 Res. 6/09 — tope remuneración actualizada ──
+  let confRem6 = null;
+  if(topeRemAct > 0 && (promDepSinTope !== promDepConTope || promAutSinTope !== promAutConTope)){
+    const hirs_rem = pbuFinal + pcSinTodo + papSinTodo; // haber pleno sin tope
+    const quita    = (pcSinTodo + papSinTodo) - (pcConRem6 + papConRem6);
+    const pct      = hirs_rem>0 ? Math.round(quita*100/hirs_rem*100)/100 : 0;
+    const liberado = (d.res6_09_inconst || d.art9_inconst) && pct>15;
+    confRem6 = {hirs:hirs_rem, quita, pct, ok:pct>15, liberado,
+      pcSin:pcSinTodo, papSin:papSinTodo, pcCon:pcConRem6, papCon:papConRem6};
+  }
+  const promDepFinal = (confRem6?.liberado) ? promDepSinTope : promDepConTope;
+  const promAutFinal = (confRem6?.liberado) ? promAutSinTope : promAutConTope;
+
+  // ── Art. 24 (tope 35 años servicios para PC) ──
+  let confArt24 = null;
+  if(N_pc > 35 || N_pap > 35){
+    const pcSin24  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+    const papSin24 = calcPC(N_pap_sin24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+    const pcCon24  = calcPC(N_pc_con24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+    const papCon24 = calcPC(N_pap_con24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+    const hirs24   = pbuFinal + pcSin24 + papSin24;
+    const quita24  = (pcSin24+papSin24) - (pcCon24+papCon24);
+    const pct24    = hirs24>0 ? Math.round(quita24*100/hirs24*100)/100 : 0;
+    const lib24    = d.art24_liberar && pct24>15;
+    confArt24 = {hirs:hirs24, quita:quita24, pct:pct24, ok:pct24>15, liberado:lib24,
+      pcSin:pcSin24, papSin:papSin24, pcCon:pcCon24, papCon:papCon24,
+      aniosExceden: Math.max(0,N_pc-35)};
+  }
+  const N_pc_final  = (confArt24?.liberado) ? N_pc_sin24  : N_pc_con24;
+  const N_pap_final = (confArt24?.liberado) ? N_pap_sin24 : N_pap_con24;
+
+  // ── Calcular PC/PAP finales con los parámetros liberados/no ──
+  let pcReaj  = calcPC(N_pc_final,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+  let papReaj = calcPC(N_pap_final, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+  if(!pcReaj)  pcReaj  = pcA;
+  if(!papReaj) papReaj = papA;
+
+  // ── Art. 26 (PC máxima = 0.208 × haber_mínimo × N_años) — automático por período ──
+  // Usa HABER_MIN de la tabla histórica a fecha de adquisición
+  let confArt26 = null;
+  const habMinAdq = getHaberMin(fadq.m, fadq.y) || p(d.haber_minimo_adq) || 0;
+  if(habMinAdq > 0){
+    const tope26PC  = Math.round(0.208 * habMinAdq * N_pc_final  * 100) / 100;
+    const tope26PAP = Math.round(0.208 * habMinAdq * N_pap_final * 100) / 100;
+    const pcCon26   = Math.min(pcReaj,  tope26PC);
+    const papCon26  = Math.min(papReaj, tope26PAP);
+    const hirs26    = pbuFinal + pcReaj + papReaj;
+    const quita26   = (pcReaj + papReaj) - (pcCon26 + papCon26);
+    const pct26     = hirs26>0 ? Math.round(quita26*100/hirs26*100)/100 : 0;
+    const lib26     = d.art26_inconst && pct26>15;
+    confArt26 = {hirs:hirs26, quita:quita26, pct:pct26, ok:pct26>15, liberado:lib26,
+      tope26PC, tope26PAP, pcSin:pcReaj, papSin:papReaj, pcCon:pcCon26, papCon:papCon26,
+      habMinAdq};
+    if(!lib26){ pcReaj = pcCon26; papReaj = papCon26; }
+  }
+
+  const haberReajInicial = pbuFinal + pcReaj + papReaj;
+
+  // ── Art. 9 Ley 24.463 — Tope sobre haber total reajustado ──
+  // El tope opera sobre el haber final (PBU+PC+PAP).
+  // Confiscatorio si: (haber_reaj - haber_máx) × 100 / haber_reaj > 15%
+  let confArt9_24463 = null;
+  // Usa HABER_MAX de la tabla histórica a fecha de adquisición (automático)
+  const topeArt9_24463 = getHaberMax(fadq.m, fadq.y) || p(d.tope_art9_24463) || 0;
+  if(topeArt9_24463 > 0 && haberReajInicial > topeArt9_24463){
+    const quita9 = haberReajInicial - topeArt9_24463;
+    const pct9   = Math.round(quita9 * 100 / haberReajInicial * 100) / 100;
+    const lib9   = d.art9_24463_liberar && pct9 > 15;
+    confArt9_24463 = {
+      haberSin: haberReajInicial,
+      haberCon: topeArt9_24463,
+      quita: quita9,
+      pct: pct9,
+      ok: pct9 > 15,
+      liberado: lib9
+    };
+  }
+
+  // Empaquetar análisis para renderizado
+  const topes = {confPBU, confRem6, confArt24, confArt26, confArt9_24463,
+    promDepSinTope, promDepConTope, promDepFinal, promAutFinal};
+
+  // ── Ley 18.037/18.038 — fórmula alternativa ──
+  // haber = P(años) × promedio, donde P: 70% (30 años) + 1%/año extra hasta 82% (42 años)
+  if(d.ley18037_aplica){
+    const anios18 = p(d.ley18037_anios) || 0;
+    const prom18  = p(d.ley18037_promedio) || 0;
+    if(anios18 > 0 && prom18 > 0){
+      const años_extra = Math.max(0, anios18 - 30);
+      const pct18 = Math.min(0.82, 0.70 + años_extra * 0.01);
+      const haber18037 = Math.round(pct18 * prom18 * 100) / 100;
+      // Sobrescribir haber de caja con resultado Ley 18.037
+      // PBU/PC/PAP no aplica — el haber es uno solo
+      haberCajaInicial = haber18037;
+      // Para el reajustado, en Ley 18.037 no hay ISBIC de rem — el haber ya viene actualizado
+      // La movilidad se aplica desde la fecha de adquisición igual
+    }
+  }
+
+  // ── ANEXO 1: Caja mes a mes ──
+  const usarBadaro = !!(d.badaro_movilidad && fadq.y <= 2006);
+  const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
+
+  // ── ANEXO 2: Reajustado mes a mes ──
+  const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
+
+  // ── ANEXO 3: Retroactivo ──
+  const anx3=[];
+  let totalCapital=0, totalInt=0;
+
+  for(const row2 of anx2){
+    const pRow=row2.y*100+row2.m;
+    const pRetro=fretro.y*100+fretro.m;
+    if(pRow<pRetro) continue;
+
+    const row1=anx1.find(x=>x.m===row2.m&&x.y===row2.y);
+    const percibido=row1?row1.haber:haberCajaInicial;
+    const reajustado=row2.haber;
+    const dif=Math.round((reajustado-percibido)*100)/100;
+    const descOS=Math.round(dif*0.06*100)/100;
+    const difNeta=Math.round((dif-descOS)*100)/100;
+    const sac=(d.villanustre_sac&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
+    const subtotal=difNeta+sac;
+
+    // Intereses: tasa pasiva BCRA estimada por período
+    const mesTransc=mesesEntre(row2.m,row2.y,fcierre.m,fcierre.y);
+    const tasaMes=getTasaMensual(row2.y);
+    const intereses=Math.round(subtotal*tasaMes*mesTransc*100)/100;
+
+    totalCapital+=subtotal;
+    totalInt+=intereses;
+
+    anx3.push({...row2,percibido,reajustado,dif,descOS,difNeta,sac,intereses,total:subtotal+intereses});
+  }
+
+  const haberCierre=anx2[anx2.length-1]?.haber||haberReajInicial;
+
+  return {d,conf:confPBU,pbuA,pcA,papA,pbuFinal,pcReaj,papReaj,haberCajaInicial,haberReajInicial,haberCierre,
+    promDepReaj:promDepFinal,promAutReaj:promAutFinal,topes,anx1,anx2,anx3,
+    totalCapital:Math.round(totalCapital*100)/100,
+    totalInt:Math.round(totalInt*100)/100,
+    totalRetro:Math.round((totalCapital+totalInt)*100)/100,
+    fadq,fcierre,fretro};
+}
+
+// Tasas pasivas BCRA históricas mensuales aproximadas (% mensual)
+function getTasaMensual(y){
+  const anual={2007:0.7,2008:0.8,2009:0.8,2010:0.8,2011:0.8,2012:0.9,2013:1.0,
+    2014:1.1,2015:1.1,2016:1.5,2017:1.6,2018:2.5,2019:3.5,2020:2.5,
+    2021:2.2,2022:3.5,2023:7.0,2024:5.0,2025:3.5};
+  return (anual[y]||2.0)/100;
+}
+
+// ═══════════════════════════════════════════════════════
+// CÁLCULO Y RENDERIZADO
+// ═══════════════════════════════════════════════════════
+function calcularYMostrar(){
+  const d=leerEditor();
+  Object.assign(S.datos,d);
+  const r=calcularLiquidacion(d,S.rems);
+  S.resultado=r;
+  renderResultado(r);
+  document.getElementById('resultado').style.display='block';
+  document.getElementById('resultado').scrollIntoView({behavior:'smooth'});
+  guardarHistorial(d,r);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER TOPES — Panel de análisis de confiscatoriedad
+// ══════════════════════════════════════════════════════
+function renderTopeRow(cfg){
+  // cfg: {label, norma, sin, con, pct, ok, liberado, unidad, nota}
+  const sinStr = cfg.sin!=null ? '$'+fmt(cfg.sin) : '—';
+  const conStr = cfg.con!=null ? '$'+fmt(cfg.con) : '—';
+  const estado = cfg.sin==null
+    ? `<span class="tope-badge tope-na">No aplica</span>`
+    : cfg.pct === 0
+    ? `<span class="tope-badge tope-ok">No supera (0%)</span>`
+    : cfg.ok
+      ? cfg.liberado
+        ? `<span class="tope-badge tope-lib">✓ Liberado — quita ${cfg.pct}% > 15%</span>`
+        : `<span class="tope-badge tope-conf">✗ Confiscatorio ${cfg.pct}% > 15% — marcá liberar</span>`
+      : `<span class="tope-badge tope-ok">No confiscatorio — quita ${cfg.pct}% ≤ 15%</span>`;
+  return `<tr class="${cfg.ok&&!cfg.liberado?'tope-row-conf':cfg.ok&&cfg.liberado?'tope-row-lib':''}">
+    <td><strong>${cfg.label}</strong><br><small style="color:var(--muted)">${cfg.norma}</small></td>
+    <td class="num">${sinStr}</td>
+    <td class="num">${conStr}</td>
+    <td>${estado}</td>
+    <td class="num" style="color:${cfg.ok?'var(--red)':'var(--green)'}">${cfg.sin!=null?cfg.pct+'%':'—'}</td>
+    ${cfg.nota?`<td><small style="color:var(--muted);font-style:italic">${cfg.nota}</small></td>`:'<td></td>'}
+  </tr>`;
+}
+
+function renderTopes(r){
+  if(!r.topes) return '';
+  const t = r.topes;
+  const d = r.d;
+  const rows = [];
+
+  // PBU
+  if(t.confPBU){
+    rows.push(renderTopeRow({
+      label:'PBU — Reajuste Badaro',
+      norma:'Quiroga CSJN 11/11/2014 · Marinati Sala III 4/7/2022',
+      sin: t.confPBU.hirs ? t.confPBU.hirs : null,
+      con: t.confPBU.hirs - t.confPBU.merma,
+      pct: t.confPBU.pct, ok: t.confPBU.ok, liberado: t.confPBU.liberado,
+      nota: t.confPBU.ok
+        ? `Merma $${fmt(t.confPBU.merma)} sobre HIRS $${fmt(t.confPBU.hirs)} → reajuste aplicado`
+        : `Merma $${fmt(t.confPBU.merma)} — PBU sin reajustar`
+    }));
+  } else {
+    rows.push(`<tr><td><strong>PBU — Reajuste Badaro</strong><br><small style="color:var(--muted)">Quiroga · Marinati</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">Sin datos (ingresá Coef.Act.PBU)</span></td><td></td></tr>`);
+  }
+
+  // Art. 14 Res. 6/09 / Art. 9/25 — tope remuneración actualizada
+  if(t.confRem6){
+    rows.push(renderTopeRow({
+      label:'Art. 9/25 Ley 24.241 + Art. 14 Res. 6/09 SSS — Tope remuneración actualizada',
+      norma:'Elliff/Blanco CSJN · Res. 6/09-SSS',
+      sin: t.confRem6.pcSin + t.confRem6.papSin,
+      con: t.confRem6.pcCon + t.confRem6.papCon,
+      pct: t.confRem6.pct, ok: t.confRem6.ok, liberado: t.confRem6.liberado,
+      nota:`W sin tope $${fmt(t.promDepSinTope)} → W con tope $${fmt(t.promDepConTope)} · Quita PC+PAP: $${fmt(t.confRem6.quita)}`
+    }));
+  } else {
+    rows.push(`<tr><td><strong>Art. 9/25 + Res. 6/09 — Tope rem. actualizada</strong><br><small style="color:var(--muted)">Ingresá tope en editor para analizar</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">Sin datos (ingresá tope rem. actualizada)</span></td><td></td></tr>`);
+  }
+
+  // Art. 24 — tope 35 años
+  if(t.confArt24){
+    rows.push(renderTopeRow({
+      label:`Art. 24 Ley 24.241 — Tope 35 años servicios (excedente: ${t.confArt24.aniosExceden} años)`,
+      norma:'Art. 24 Ley 24.241 · Actis Caporale CSJN',
+      sin: t.confArt24.pcSin + t.confArt24.papSin,
+      con: t.confArt24.pcCon + t.confArt24.papCon,
+      pct: t.confArt24.pct, ok: t.confArt24.ok, liberado: t.confArt24.liberado,
+      nota:`PC sin tope $${fmt(t.confArt24.pcSin)} → con tope $${fmt(t.confArt24.pcCon)}`
+    }));
+  } else {
+    rows.push(`<tr><td><strong>Art. 24 Ley 24.241 — Tope 35 años</strong></td>
+      <td colspan="4"><span class="tope-badge tope-ok">No aplica — años de servicios ≤ 35</span></td><td></td></tr>`);
+  }
+
+  // Art. 26 — PC máxima
+  if(t.confArt26){
+    rows.push(renderTopeRow({
+      label:'Art. 26 Ley 24.241 — PC máxima (0,208 × hab.mín × N años)',
+      norma:'Art. 26 Ley 24.241 · Res. 6/09-SSS · Actis Caporale',
+      sin: t.confArt26.pcSin + t.confArt26.papSin,
+      con: t.confArt26.pcCon + t.confArt26.papCon,
+      pct: t.confArt26.pct, ok: t.confArt26.ok, liberado: t.confArt26.liberado,
+      nota:`Tope PC: $${fmt(t.confArt26.tope26PC)} · Tope PAP: $${fmt(t.confArt26.tope26PAP)} · Quita total: $${fmt(t.confArt26.quita)}`
+    }));
+  } else {
+    rows.push(`<tr><td><strong>Art. 26 Ley 24.241 — PC máxima</strong><br><small style="color:var(--muted)">Ingresá haber mínimo para analizar</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">Sin datos (ingresá haber mínimo a fecha adquisición)</span></td><td></td></tr>`);
+  }
+
+  // Art. 9 Ley 24.463 — tope sobre haber total
+  if(t.confArt9_24463){
+    rows.push(renderTopeRow({
+      label:'Art. 9 Ley 24.463 — Haber máximo (tope sobre total PBU+PC+PAP)',
+      norma:'Art. 9 Ley 24.463 · Res. 6/09-SSS · Pellegrini CSJN 28/11/2006',
+      sin: t.confArt9_24463.haberSin,
+      con: t.confArt9_24463.haberCon,
+      pct: t.confArt9_24463.pct,
+      ok:  t.confArt9_24463.ok,
+      liberado: t.confArt9_24463.liberado,
+      nota:`Haber reajustado $${fmt(t.confArt9_24463.haberSin)} supera tope $${fmt(t.confArt9_24463.haberCon)} — quita: $${fmt(t.confArt9_24463.quita)}`
+    }));
+  } else if(t.confArt9_24463 === null){
+    rows.push(`<tr><td><strong>Art. 9 Ley 24.463 — Haber máximo</strong><br><small style="color:var(--muted)">Ingresá el tope para analizar</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">Sin datos (ingresá haber máximo Art. 9 Ley 24.463)</span></td><td></td></tr>`);
+  } else {
+    rows.push(`<tr><td><strong>Art. 9 Ley 24.463 — Haber máximo</strong></td>
+      <td colspan="4"><span class="tope-badge tope-ok">No aplica — haber reajustado no supera el tope</span></td><td></td></tr>`);
+  }
+
+  // Resumen final
+  const haberPleno = (t.confPBU?.hirs || r.pbuA) + (t.confArt26?.pcSin||r.pcReaj) + (t.confArt26?.papSin||r.papReaj);
+  const topesActivos = [t.confRem6?.ok&&!t.confRem6?.liberado, t.confArt24?.ok&&!t.confArt24?.liberado, t.confArt26?.ok&&!t.confArt26?.liberado].filter(Boolean).length;
+
+  return `<div class="card" style="border-left:4px solid var(--accent2);margin-bottom:14px">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      🔬 Análisis de confiscatoriedad de topes
+      <small style="font-size:10px;font-weight:400;color:var(--muted)">
+        Quita > 15% del HIRS → confiscatorio → se puede liberar previa orden judicial
+      </small>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px" class="topes-table">
+      <thead><tr style="background:var(--bg2)">
+        <th style="padding:6px;text-align:left">Tope / Norma</th>
+        <th style="padding:6px;text-align:right">Sin tope</th>
+        <th style="padding:6px;text-align:right">Con tope</th>
+        <th style="padding:6px;text-align:left">Estado</th>
+        <th style="padding:6px;text-align:right">% Quita</th>
+        <th style="padding:6px;text-align:left">Detalle</th>
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>
+    ${topesActivos>0?`<div class="alert warn" style="margin-top:10px;font-size:11px">
+      ⚠ ${topesActivos} tope(s) con quita confiscatoria que aún no fueron liberados. 
+      Si la sentencia ordenó la inaplicabilidad, tildá "Liberar" en el editor y recalculá.
+    </div>`:''}
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;font-style:italic">
+      Haber reajustado inicial efectivo: $${fmt(r.haberReajInicial)} · 
+      ${t.confPBU?.ok?'PBU reajustada (Badaro)':'PBU sin reajuste'} · 
+      Metodología: Actis Caporale (Fallos 323:4216) · Marinati Sala III CFSS 4.7.22
+    </div>
+  </div>`;
+}
+
+function renderResultado(r){
+  const d=r.d;
+  const hdr=`
+    <div class="liq-wrap">
+      <div class="liq-hdr">
+        <div><div class="liq-title">${d.caratula||'—'}</div><div class="liq-sub">Expte. ${d.expediente||'—'} · Ley ${d.ley_aplicada||'—'} · ${d.regimen||'—'}</div></div>
+        <div class="liq-meta">LiquidaJus v4.0<br>${new Date().toLocaleDateString('es-AR')}</div>
+      </div>
+      <div class="liq-datos">
+        <div><div class="ld-label">CUIL</div><div class="ld-value">${d.cuil||'—'}</div></div>
+        <div><div class="ld-label">Fecha Adquisición</div><div class="ld-value">${d.fecha_adquisicion||'—'}</div></div>
+        <div><div class="ld-label">Inicio Retroactivo</div><div class="ld-value">${d.fecha_inicio_retro||'—'}</div></div>
+        <div><div class="ld-label">Cierre</div><div class="ld-value">${fmtP(r.fcierre.m,r.fcierre.y)}</div></div>
+      </div>
+    </div>`;
+
+  // ALERTAS
+  const alerts=[];
+  if(r.conf?.ok) alerts.push({t:'ok',m:`PBU confiscatoria (${r.conf.pct}% > 15%) → SE REAJUSTA con Badaro`});
+  if(r.conf&&!r.conf.ok) alerts.push({t:'warn',m:`PBU quita ${r.conf.pct}% < 15% → NO supera umbral → sin reajuste`});
+  if(d.ganancias_exento) alerts.push({t:'ok',m:'Ganancias: exento sobre retroactivos (García CSJN 2019)'});
+  const aAdq=parseFecha(d.fecha_adquisicion)?.y||0;
+  // Ley 18.037 — párrafo específico
+  if(d.ley18037_aplica){
+    const anios18 = parseFloat(d.ley18037_anios)||0;
+    const prom18  = parseFloat(d.ley18037_promedio)||0;
+    if(anios18>0 && prom18>0){
+      const añEx = Math.max(0,anios18-30);
+      const pct18 = Math.min(82,70+añEx);
+      parrafos.unshift({l:'Ley 18.037/18.038 — Fórmula de haber',
+        t:`El haber se calcula según la Ley 18.037/18.038 (T.O. 1976): ${pct18}% del promedio de remuneraciones actualizado ($${fmt(prom18)}), con ${anios18} años de servicios con aportes, resultando un haber inicial de $${fmt(Math.round(pct18/100*prom18*100)/100)}.`
+      });
+    }
+  }
+  if(aAdq>2006) alerts.push({t:'ok',m:'Badaro movilidad NO aplica — beneficio posterior a dic/2006'});
+  else if(d.badaro_movilidad) alerts.push({t:'ok',m:`Badaro movilidad aplicada (IS INDEC +88.6% ene/2002–dic/2006, CSJN 26.11.2007)`});
+  else if(aAdq<=2006) alerts.push({t:'warn',m:'Verificar si corresponde Badaro movilidad (adquisición ≤ dic/2006) — tildá si la sentencia lo ordenó'});
+  const alertsHtml=alerts.map(a=>`<div class="alert ${a.t}">${a.t==='ok'?'✓':'⚠'} ${a.m}</div>`).join('');
+
+  // PANEL DE TOPES
+  const topesHtml = renderTopes(r);
+
+  // ANEXO 1
+  let a1rows=''; let prevH=null;
+  for(const row of r.anx1){
+    const isMov=row.factor&&row.factor>1;
+    a1rows+=`<tr class="${isMov?'tr-mov':''}">
+      <td>${fmtP(row.m,row.y)}</td>
+      <td>${row.factor?row.factor.toFixed(4):'1.0000'}</td>
+      <td>${row.norma||'—'}</td>
+      <td>$${fmt(row.haber)}</td>
+    </tr>`;
+  }
+  document.getElementById('pane-a1').innerHTML=hdr+alertsHtml+topesHtml+`
+    <div class="liq-wrap">
+      <div class="liq-anx-title">ANEXO I — HABER DE CAJA</div>
+      <div class="liq-indices">Haber inicial: PBU $${fmt(r.pbuA)} + PC $${fmt(r.pcA)} + PAP $${fmt(r.papA)} = $${fmt(r.haberCajaInicial)} · Movilidad: ${d.indice_movilidad||'Aumentos Generales Ley 26.417'}</div>
+      <table class="liq-table">
+        <thead><tr><th>Período</th><th>Factor Mov.</th><th>Norma</th><th>Haber de Caja</th></tr></thead>
+        <tbody>${a1rows}</tbody>
+        <tfoot><tr class="tr-total"><td colspan="3">HABER DE CAJA AL ${fmtP(r.fcierre.m,r.fcierre.y)}</td><td>$${fmt(r.anx1[r.anx1.length-1]?.haber)}</td></tr></tfoot>
+      </table>
+    </div>`;
+
+  // ANEXO 2
+  let a2rows='';
+  const N_pc_f  = p(r.d.anios_pc)  || 0;
+  const N_pap_f = p(r.d.anios_pap) || 0;
+  const lib26   = r.topes?.confArt26?.liberado;
+  const lib9    = r.topes?.confArt9_24463?.liberado;
+  for(const row of r.anx2){
+    const isMov=row.factor&&row.factor>1;
+    // Topes por período
+    const habMin_p = getHaberMin(row.m, row.y);
+    const habMax_p = getHaberMax(row.m, row.y);
+    const tope26_p = habMin_p && N_pc_f  ? Math.round(0.208*habMin_p*N_pc_f*100)/100  : null;
+    const tope26pap= habMin_p && N_pap_f ? Math.round(0.208*habMin_p*N_pap_f*100)/100 : null;
+    const topePC_p = tope26_p && tope26pap ? tope26_p + tope26pap : null;
+    // Verificar si el haber excede el tope Art.26 (PC+PAP)
+    // Estimamos PC+PAP ≈ haber - PBU (aprox: pbuFinal se mantiene constante en ratio)
+    const pbuRatio = r.haberReajInicial > 0 ? r.pbuFinal / r.haberReajInicial : 0;
+    const pcpap_p  = row.haber * (1 - pbuRatio);
+    const excede26 = !lib26 && topePC_p && pcpap_p > topePC_p;
+    const excede9  = !lib9  && habMax_p && row.haber > habMax_p;
+    let estadoCell = '';
+    if(excede26 && excede9) estadoCell = '<span class="tope-badge tope-conf">Art.26+Art.9</span>';
+    else if(excede26)       estadoCell = '<span class="tope-badge tope-conf">Art.26</span>';
+    else if(excede9)        estadoCell = '<span class="tope-badge tope-conf">Art.9 L.24463</span>';
+    else if(lib26 || lib9)  estadoCell = '<span class="tope-badge tope-lib">Liberado</span>';
+    else                    estadoCell = '<span class="tope-badge tope-ok">OK</span>';
+    a2rows+=`<tr class="${isMov?'tr-mov':''}" style="${excede9&&!lib9?'background:#fff0f0':excede26&&!lib26?'background:#fff8f0':''}">
+      <td>${fmtP(row.m,row.y)}</td>
+      <td>${row.factor?row.factor.toFixed(4):'1.0000'}</td>
+      <td style="font-weight:600">$${fmt(row.haber)}</td>
+      <td style="color:var(--muted);font-size:10px">${topePC_p?'$'+fmt(topePC_p):'—'}</td>
+      <td style="color:var(--muted);font-size:10px">${habMax_p?'$'+fmt(habMax_p):'—'}</td>
+      <td>${estadoCell}</td>
+    </tr>`;
+  }
+  const confTxt=r.conf?` · Test PBU: ${r.conf.pct}% (${r.conf.ok?'CONFISCATORIO → SE REAJUSTA':'sin reajuste'})`:'';
+  document.getElementById('pane-a2').innerHTML=`
+    <div class="liq-wrap">
+      <div class="liq-anx-title">ANEXO II — HABER REAJUSTADO</div>
+      <div class="liq-indices">Act. remuneraciones: ${d.indice_actualizacion_rem||'ISBIC hasta 02/2009 y Aumentos Generales'} · PBU $${fmt(r.pbuFinal)} + PC $${fmt(r.pcReaj)} + PAP $${fmt(r.papReaj)} = $${fmt(r.haberReajInicial)}${confTxt}</div>
+      <table class="liq-table" style="font-size:11px">
+        <thead><tr><th>Período</th><th>Factor Mov.</th><th>Haber Reajustado</th><th>Tope Art.26<br><small style="font-weight:400;color:var(--muted)">0.208×mín×N</small></th><th>Tope Art.9<br><small style="font-weight:400;color:var(--muted)">Ley 24.463</small></th><th>Estado</th></tr></thead>
+        <tbody>${a2rows}</tbody>
+        <tfoot><tr class="tr-total"><td colspan="3">HABER REAJUSTADO AL ${fmtP(r.fcierre.m,r.fcierre.y)}</td><td colspan="3">$${fmt(r.haberCierre)}</td></tr></tfoot>
+      </table>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic">
+        🔵 Tope Art.26 = 0,208 × hab.mín × N años (PC+PAP) · 🔴 Tope Art.9 Ley 24.463 = haber máximo del período · 
+        Fondos en rojo = tope operativo sin liberar · Fondos en celeste = tope liberado por sentencia
+      </div>
+    </div>`;
+
+  // ANEXO 3
+  let a3rows='';
+  let tP=0,tR=0,tD=0,tOS=0,tN=0,tS=0,tI=0,tT=0;
+  for(const row of r.anx3){
+    const isMov=row.factor&&row.factor>1;
+    a3rows+=`<tr class="${isMov?'tr-mov':''}">
+      <td>${fmtP(row.m,row.y)}</td>
+      <td>$${fmt(row.percibido)}</td>
+      <td>$${fmt(row.reajustado)}</td>
+      <td>$${fmt(row.dif)}</td>
+      <td>$${fmt(row.descOS)}</td>
+      <td>$${fmt(row.difNeta)}</td>
+      <td>${row.sac>0?'$'+fmt(row.sac):'—'}</td>
+      <td>$${fmt(row.intereses)}</td>
+      <td style="font-weight:700">$${fmt(row.total)}</td>
+    </tr>`;
+    tP+=row.percibido;tR+=row.reajustado;tD+=row.dif;tOS+=row.descOS;
+    tN+=row.difNeta;tS+=row.sac;tI+=row.intereses;tT+=row.total;
+  }
+  document.getElementById('pane-a3').innerHTML=`
+    <div class="liq-wrap">
+      <div class="liq-anx-title">ANEXO III — RETROACTIVIDAD</div>
+      <div class="liq-indices">Período: ${d.fecha_inicio_retro||'—'} al ${fmtP(r.fcierre.m,r.fcierre.y)} · Intereses: ${d.tasa_interes||'Tasa Pasiva BCRA'} · OS: 6%${d.villanustre_sac?' · SAC incluido':''}</div>
+      <table class="liq-table" style="font-size:10px">
+        <thead><tr><th>Período</th><th>Percibido</th><th>Reajustado</th><th>Diferencia</th><th>Desc.OS</th><th>Dif.Neta</th><th>SAC</th><th>Intereses</th><th>Total</th></tr></thead>
+        <tbody>${a3rows}</tbody>
+        <tfoot>
+          <tr class="tr-sub"><td>TOTALES</td><td>$${fmt(tP)}</td><td>$${fmt(tR)}</td><td>$${fmt(tD)}</td><td>$${fmt(tOS)}</td><td>$${fmt(tN)}</td><td>$${fmt(tS)}</td><td>$${fmt(tI)}</td><td>$${fmt(tT)}</td></tr>
+        </tfoot>
+      </table>
+      <div class="liq-resumen">
+        <div><div class="lr-label">Haber al cierre</div><div class="lr-value">$${fmt(r.haberCierre)}</div></div>
+        <div><div class="lr-label">Retroactividad total</div><div class="lr-value ${r.totalRetro<0?'style="color:#ffcccc"':''}">$${fmt(r.totalRetro)}</div></div>
+        <div><div class="lr-label">Período</div><div class="lr-value w">${d.fecha_inicio_retro||'—'} → ${fmtP(r.fcierre.m,r.fcierre.y)}</div></div>
+      </div>
+      ${r.totalRetro<0 ? `<div class="alert warn" style="margin:0;border-radius:0 0 6px 6px;background:#8b1a1a;color:white;border:none">
+        ✗ <strong>BUG 4/5 DETECTADO — Retroactivo negativo ($${fmt(r.totalRetro)})</strong><br>
+        El haber reajustado es menor al haber de caja, lo que es imposible en un expediente de reajuste.
+        Causas más probables: (1) PBU administrativa incorrecta — verificar que pbu_admin sea el cód. 930, no el cód. 318 (Desc. O.Social);
+        (2) Coeficiente PBU (Badaro) incorrecto o en cero; (3) Promedio W/R no cargado.
+        Corregí los datos en el editor y recalculá.
+      </div>` : ''}
+    </div>`;
+
+  // DICTAMEN
+  renderDictamen(r);
+}
+
+function renderDictamen(r){
+  const d=r.d;
+  const aAdq=parseFecha(d.fecha_adquisicion)?.y||0;
+  const parrafos=[];
+
+  if(r.conf){
+    parrafos.push({l:r.conf.ok?'PBU — Reajuste confiscatorio':'PBU — Sin confiscatoriedad',
+      t:r.conf.ok
+        ?`Respecto al cálculo de la PBU, corresponde señalar que la actora ha utilizado las pautas indicadas oportunamente en autos, quedando acreditado el porcentaje de confiscatoriedad requerido a tal efecto (${r.conf.pct}% > 15%) de acuerdo a la metodología aplicada por la Sala III de la Excma. Cámara Federal de la Seguridad Social en el precedente "Marinati Nilda Ana c/ Anses s/ reajustes varios" (sentencia de fecha 4.7.22).`
+        :`Respecto a la PBU, atento que la quita resultante (${r.conf.pct}%) no supera el umbral de confiscatoriedad del 15% establecido por la CSJN en "Actis Caporale" (Fallos 323:4216), no corresponde el reajuste de la PBU.`});
+  }
+
+  if(aAdq>2006) parrafos.push({l:'Movilidad Badaro — Desestimación',
+    t:`Con respecto al cuestionamiento relativo a la movilidad, considerando que la fecha de adquisición del derecho de la parte actora es posterior al período previsto en "Badaro, Adolfo Valentín" (CSJN, 26.11.2007), corresponde desestimarlo.`});
+  else if(d.badaro_movilidad) parrafos.push({l:'Movilidad Badaro — Aplicación',
+    t:`En cuanto a la movilidad para el período comprendido entre el 1° de enero de 2002 y el 31 de diciembre de 2006, se aplicó el Índice de Salarios Nivel General elaborado por el INDEC, conforme lo dispuesto por la CSJN en "Badaro, Adolfo Valentín" (Fallos 330:4866, 26/11/2007), que arrojó una variación acumulada del 88,6% en dicho período. Ello en atención a que, durante esos años, el legislador no cumplió con la manda constitucional de establecer haberes móviles, omisión que produjo un severo deterioro en las condiciones de vida de los beneficiarios (art. 14 bis C.N.).`});
+
+  // Art. 26
+  if(r.topes?.confArt26?.ok){
+    parrafos.push({l:`Art. 26 Ley 24.241 — ${r.topes.confArt26.liberado?'Tope liberado (confiscatorio)':'Tope aplicado (no confiscatorio)'}`,
+      t: r.topes.confArt26.liberado
+        ? `En cuanto al art. 26 de la ley 24.241, ha quedado demostrado que su aplicación genera una quita de $${fmt(r.topes.confArt26.quita)} sobre un HIRS de $${fmt(r.topes.confArt26.hirs)}, lo que representa el ${r.topes.confArt26.pct}% y supera el umbral de confiscatoriedad del 15% establecido por la CSJN en "Actis Caporale" (Fallos 323:4216), resultando confiscatorio. En consecuencia, se declara la inaplicabilidad del tope previsto en el art. 26 de la ley 24.241.`
+        : `Con relación al tope del art. 26 de la ley 24.241, la quita resultante de su aplicación (${r.topes.confArt26.pct}%) no supera el umbral del 15%, por lo que corresponde su aplicación sin que ello resulte confiscatorio.`});
+  } else if(d.art26_inconst){
+    parrafos.push({l:'Art. 26 Ley 24.241 — Inconstitucionalidad',
+      t:`En cuanto al art. 26 de la ley 24.241, ha quedado demostrado que su aplicación genera disminución en el haber que por su magnitud resulta confiscatoria, ello de acuerdo con las pautas señaladas por la Corte Suprema in re "Actis Caporale, Loredano Luis Adolfo c/ INPS" (A403: XXXII, 19/8/99).`});
+  }
+
+  // Art. 24
+  if(r.topes?.confArt24?.ok){
+    parrafos.push({l:`Art. 24 Ley 24.241 — Tope 35 años (${r.topes.confArt24.liberado?'liberado':'aplicado'})`,
+      t: r.topes.confArt24.liberado
+        ? `En relación al tope de 35 años de servicios establecido en el art. 24 de la ley 24.241, la quita resultante de su aplicación alcanza el ${r.topes.confArt24.pct}%, superando el 15%, por lo que resulta confiscatorio. Se declara su inaplicabilidad en el presente caso, debiendo computarse la totalidad de los años de servicios con aportes.`
+        : `El tope de 35 años del art. 24 de la ley 24.241 genera una quita del ${r.topes.confArt24.pct}%, que no supera el umbral de confiscatoriedad del 15%, por lo que corresponde su aplicación.`});
+  }
+
+  // Art. 9/25 + Res. 6/09
+  if(r.topes?.confRem6?.ok){
+    parrafos.push({l:`Art. 9/25 + Art. 14 Res. 6/09 — Tope remuneración (${r.topes.confRem6.liberado?'liberado':'aplicado'})`,
+      t: r.topes.confRem6.liberado
+        ? `En cuanto a los topes establecidos en los arts. 9 y 25 de la ley 24.241 y el Art. 14 de la Res. 6/09 SSS, su aplicación genera una quita del ${r.topes.confRem6.pct}% sobre el HIRS ($${fmt(r.topes.confRem6.hirs)}), lo que supera el umbral del 15%. Conforme la doctrina de "Actis Caporale" (Fallos 323:4216), se declara su inaplicabilidad, tomando para el cálculo el promedio de remuneraciones sin aplicar el tope de la remuneración actualizada.`
+        : `El tope de la remuneración actualizada (Art. 14 Res. 6/09 SSS) genera una quita del ${r.topes.confRem6.pct}%, que no supera el umbral de confiscatoriedad del 15%, por lo que se aplica.`});
+  }
+
+  // Art. 9 Ley 24.463
+  if(r.topes?.confArt9_24463?.ok){
+    parrafos.push({
+      l:`Art. 9 Ley 24.463 — Tope haber máximo (${r.topes.confArt9_24463.liberado?'liberado':'aplicado'})`,
+      t: r.topes.confArt9_24463.liberado
+        ? `En cuanto al tope del haber máximo establecido en el art. 9 de la ley 24.463, el haber reajustado calculado ($${fmt(r.topes.confArt9_24463.haberSin)}) supera el haber máximo fijado ($${fmt(r.topes.confArt9_24463.haberCon)}), generando una quita de $${fmt(r.topes.confArt9_24463.quita)} que representa el ${r.topes.confArt9_24463.pct}% del haber reajustado y supera el umbral de confiscatoriedad del 15%. Conforme la doctrina de la CSJN en "Pellegrini, Américo c/ ANSeS s/ reajustes varios" (Fallos 329:4676, 28/11/2006) y en virtud de la inaplicabilidad ordenada en la presente sentencia, corresponde abonar el haber sin aplicar dicho tope.`
+        : `El tope del haber máximo del art. 9 de la ley 24.463 genera una quita del ${r.topes.confArt9_24463.pct}%, que no supera el umbral de confiscatoriedad del 15%, por lo que corresponde su aplicación.`
+    });
+  }
+
+  if(d.ganancias_exento) parrafos.push({l:'Ganancias — Exención',
+    t:`En relación con el impuesto a las ganancias, conforme la doctrina de la CSJN en "García, María Isabel c/ AFIP" (sentencia del 26/03/2019) y "García Blanco, Esteban c/ Anses" (06/05/2021), corresponde declarar exentas del pago del impuesto a las ganancias a las retroactividades abonadas en efectivo, emergentes de la sentencia que se ejecuta.`});
+
+  parrafos.push({l:'Metodología de imputación de pagos',
+    t:`En cuanto a la metodología utilizada por la parte actora para imputar los pagos, la misma resulta correcta, por lo que corresponde desestimar la impugnación sobre el particular.`});
+
+  parrafos.push({l:'Párrafo resolutivo',
+    t:`Así, luego de analizar la liquidación en cuestión y teniendo en cuenta que la misma se ajusta a los parámetros de la sentencia en ejecución, estimo acertado aprobarla. En consecuencia, RESUELVO: 1.- Aprobar en cuanto ha lugar por derecho la liquidación presentada por la actora, quedando determinado el haber al ${fmtP(r.fcierre.m,r.fcierre.y)} en la suma de PESOS ${fmt(r.haberCierre)} ($${fmt(r.haberCierre)}) y las retroactividades en la suma de PESOS ${fmt(r.totalRetro)} ($${fmt(r.totalRetro)}).`});
+
+  document.getElementById('pane-dict').innerHTML=
+    parrafos.map(p=>`<div class="parrafo-card">
+      <div class="parrafo-label">${p.l}</div>
+      <div class="parrafo-text">${p.t}</div>
+      <button class="btn btn-secondary" style="margin-top:6px;padding:4px 10px;font-size:11px" onclick="copiar(this,'${p.t.replace(/'/g,"\\'")}')">📋 Copiar</button>
+    </div>`).join('')+
+    `<div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn btn-primary" style="width:auto;padding:10px 18px" onclick="exportarAuto()">📄 Exportar auto (.txt)</button>
+      <button class="btn btn-secondary" style="padding:10px 18px" onclick="exportarLiq()">📊 Exportar liquidación (.html)</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORIAL
+// ═══════════════════════════════════════════════════════
+function guardarHistorial(d,r){
+  S.historial.unshift({id:Date.now(),fecha:new Date().toLocaleDateString('es-AR'),
+    caratula:d.caratula||'—',expediente:d.expediente||'—',ley:d.ley_aplicada||'24241',
+    haber:r.haberCierre,retro:r.totalRetro,datos:d,rems:S.rems.map(r=>({...r}))});
+  if(S.historial.length>50) S.historial=S.historial.slice(0,50);
+  try{localStorage.setItem('liqjus_v4',JSON.stringify(S.historial));}catch(e){}
+  document.getElementById('hist-count').textContent=S.historial.length;
+}
+
+function renderHistorial(){
+  const el=document.getElementById('hist-list');
+  if(!S.historial.length){ el.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted)"><div style="font-size:36px;margin-bottom:10px">📁</div><div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--ink2)">Sin causas guardadas</div></div>`; return; }
+  el.innerHTML=S.historial.map(h=>`
+    <div class="hist-row" onclick="verCausa(${h.id})">
+      <div class="hist-dot"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.caratula}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:'Source Code Pro',monospace">${h.expediente} · Ley ${h.ley} · Haber $${fmt(h.haber)} · Retro $${fmt(h.retro)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);white-space:nowrap">${h.fecha}</div>
+    </div>`).join('');
+}
+
+function verCausa(id){
+  const h=S.historial.find(x=>x.id===id); if(!h) return;
+  showPage('nueva');
+  Object.assign(S.datos,h.datos);
+  S.rems=h.rems||[];
+  mostrarEditor(h.datos);
+  if(S.rems.length>0) renderRemsTable();
+  const r=calcularLiquidacion(h.datos,S.rems);
+  renderResultado(r);
+  document.getElementById('resultado').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  document.getElementById('nav-'+id)?.classList.add('active');
+  if(id==='movilidades') renderMovilidades();
+  if(id==='jurisprudencia') renderJurisprudencia();
+  if(id==='historial') renderHistorial();
+}
+
+function showTab(e,id){
+  const bar=e.target.closest('.tab-bar');
+  bar.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  let el=bar.nextElementSibling;
+  while(el&&el.classList.contains('tab-pane')){el.classList.remove('active');el=el.nextElementSibling;}
+  document.getElementById('pane-'+id)?.classList.add('active');
+}
+
+function setModo(m){
+  S.modo=m;
+  document.getElementById('btn-estudio').classList.toggle('active',m==='estudio');
+  document.getElementById('btn-juzgado').classList.toggle('active',m==='juzgado');
+}
+
+function resetTodo(){
+  S.archivos={}; S.datos={}; S.rems=[];
+  document.querySelectorAll('.uz').forEach(z=>z.classList.remove('loaded'));
+  document.querySelectorAll('.uz-tag').forEach(t=>{t.className=t.classList.contains('opt')?'uz-tag opt':'uz-tag';t.textContent=t.classList.contains('opt')?'Opcional':'Requerido';});
+  document.querySelectorAll('.uz-files').forEach(f=>f.innerHTML='');
+  document.getElementById('steps-card').style.display='none';
+  document.getElementById('editor-section').style.display='none';
+  document.getElementById('resultado').style.display='none';
+  checkBtn();
+}
+
+function renderMovilidades(){
+  const el=document.getElementById('tabla-movs');
+  el.innerHTML=`<thead><tr><th>Período</th><th>Factor</th><th>% Aumento</th><th>Norma</th></tr></thead><tbody>`+
+    MOVS.map(m=>`<tr><td>${fmtP(m.m,m.y)}</td><td style="font-weight:700;color:var(--accent)">${m.f.toFixed(4)}</td><td style="color:var(--green2);font-weight:700">+${Math.round((m.f-1)*10000)/100}%</td><td>${m.n}</td></tr>`).join('')+'</tbody>';
+}
+
+function renderJurisprudencia(){
+  document.getElementById('juris-list').innerHTML=JURIS.map(j=>`
+    <div class="card" style="margin-bottom:10px;padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+        <div style="font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:var(--accent)">${j.f}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'Source Code Pro',monospace;text-align:right">${j.t}<br>${j.d} · ${j.c}</div>
+      </div>
+      <div style="font-size:12px;color:var(--ink2);line-height:1.6">${j.txt}</div>
+    </div>`).join('');
+}
+
+function copiar(btn,txt){
+  navigator.clipboard.writeText(txt).then(()=>{btn.textContent='✓ Copiado';setTimeout(()=>btn.textContent='📋 Copiar',2000);});
+}
+
+function exportarAuto(){
+  const ps=document.querySelectorAll('.parrafo-text');
+  let txt='AUTO APROBATORIO\n'+'='.repeat(70)+'\n\n';
+  ps.forEach(p=>txt+=p.textContent+'\n\n'+'—'.repeat(70)+'\n\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download='auto_'+Date.now()+'.txt'; a.click();
+}
+
+function exportarLiq(){
+  const c=['pane-a1','pane-a2','pane-a3'].map(id=>document.getElementById(id)?.innerHTML||'').join('<hr>');
+  const full=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>LiquidaJus</title><style>body{font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse;margin-bottom:20px}th,td{border:1px solid #ccc;padding:5px 8px;font-size:11px}th{background:#f0f0f0}</style></head><body>${c}</body></html>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([full],{type:'text/html;charset=utf-8'}));
+  a.download='liquidacion_'+Date.now()+'.html'; a.click();
+}
+
+// UTILS
+function f2b64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=()=>rej(new Error('Error leyendo '+file.name)); r.readAsDataURL(file); }); }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// INIT
+document.getElementById('hist-count').textContent=S.historial.length;
+</script>
+</body>
+</html>
