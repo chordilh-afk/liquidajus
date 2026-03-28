@@ -1089,8 +1089,9 @@ function mostrarEditor(d){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
         <input type="checkbox" id="ed_${c.k}" ${v?'checked':''}
-          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
-        <span style="color:var(--muted);font-size:11px">${v?'✓ Activo':'Sin marcar'}</span>
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"
+          onchange="this.nextElementSibling.textContent=this.checked?'✓ Activo':'Sin marcar';this.nextElementSibling.style.color=this.checked?'var(--accent)':'var(--muted)'">
+        <span style="color:${v?'var(--accent)':'var(--muted)'}">${v?'✓ Activo':'Sin marcar'}</span>
       </label></div>`;
     } else if(c.t==='sel'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
