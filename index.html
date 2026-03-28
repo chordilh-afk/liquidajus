@@ -749,11 +749,26 @@ MOVILIDAD DEL HABER:
   → badaro_indice = "IS INDEC Nivel General"
   → badaro_desde = "01/2002", badaro_hasta = "12/2006"
   → badaro_acumulado = 0.886 (88.6% acumulado)
-  → ATENCIÓN: si la sentencia dice que Badaro NO aplica (beneficio posterior a dic/2006), registralo como badaro_movilidad = false con la nota correspondiente
+
+• Cuando la sentencia dice que Badaro NO aplica porque la adquisición es posterior a dic/2006,
+  y ordena aplicar Ley 26.417 y sus reglamentaciones y/o Ley 27.426:
+  Frases típicas: "adquirió el derecho con posterioridad al 31.12.06" / "no corresponde la aplicación del precedente Badaro"
+  → badaro_movilidad = false
+  → indice_movilidad = "Ley 26.417 y Ley 27.426"
+  → registrar en notas_interpretacion que el juez descartó Badaro por adquisición posterior a dic/2006
+
+• "Ley 26.417" / "movilidad de ley" / "Aumentos Generales" / "ley 27.426"
+  → indice_movilidad = "Ley 26.417 y Ley 27.426"
 
 CONFISCATORIEDAD Y TOPES:
-• "Actis Caporale" (CSJN Fallos 323:4216)
-  → test_confiscatoriedad = true, umbral = 15%
+• "Actis Caporale" (CSJN Fallos 323:4216) / "confiscatoriedad" / "analizar el tope"
+  → test_confiscatoriedad = true
+  → analizar_conf_pbu = true (si menciona PBU o quita de PBU)
+  → analizar_conf_art26 = true (si menciona tope PC art. 26)
+  → analizar_conf_art9_24463 = true (si menciona tope haber máximo art. 9 ley 24.463)
+  → analizar_conf_res6 = true (si menciona tope rem. actualizada Res. 6/09)
+  → nota: cuando la sentencia ordena "verificar confiscatoriedad" o "analizar el tope",
+    marcar el campo analizar correspondiente aunque no declare la inconstitucionalidad
 
 • "Marinati" (Sala III CFSS) / "Quiroga" / "ActisCaporale + reajuste PBU"
   → reajuste_pbu = true (si quita PBU supera 15% → se reajusta)
@@ -812,7 +827,7 @@ INSTRUCCIONES
 5. Si hay ambigüedad o algo que requiere decisión del auditor, registralo en "zonas_grises"
 
 Devolvé ÚNICAMENTE este JSON sin texto adicional ni markdown:
-{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"reajuste_pbu":false,"test_confiscatoriedad":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"makler":false,"volonte":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
+{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"indice_movilidad":"Ley 26.417 y Ley 27.426","reajuste_pbu":false,"test_confiscatoriedad":false,"analizar_conf_pbu":false,"analizar_conf_art26":false,"analizar_conf_art9_24463":false,"analizar_conf_res6":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"makler":false,"volonte":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
 
     contentSent.push({type:"text",text:PROMPT_FASE1});
 
@@ -870,8 +885,11 @@ REGLAS CRÍTICAS:
 - pc_admin = concepto 931, pap_admin = concepto 932
 - haber_admin_total = suma PBU+PC+PAP sin descuentos
 - fecha_adquisicion = fecha de adquisición del DERECHO (no el cese ni la última remuneración)
+- anios_pc: en la resolución otorgatoria de ANSeS, buscar la sección "Antes del 7/94" — los años o meses que figuran ahí corresponden a la PC. Dividir por 12 si están en meses
+- anios_pap: en la resolución otorgatoria de ANSeS, buscar la sección "Después del 7/94" o "Desde el 7/94" — los años o meses que figuran ahí corresponden a la PAP. Dividir por 12 si están en meses
 - meses_pc_dep / meses_pc_aut: son MESES, no años
 - Si la ley es 18.037 o 18.038: ley18037_porcentaje = % aplicado (ej: 0.82), ley18037_promedio = promedio remuneraciones actualizado, ley18037_anios = años de servicios
+- IMPORTANTE para Ley 18.037: las remuneraciones son ANUALES — se toman los mejores años (hasta 10) de los últimos 10. Extraer cada año con su importe anual, el sistema lo divide por 12 automáticamente para obtener el mensual (ej: 0.82), ley18037_promedio = promedio remuneraciones actualizado, ley18037_anios = años de servicios
 - fecha_inicio_retro = 2 años antes de fecha_reclamo_admin
 - Si hay tabla "DETALLE DE APORTES AUTONOMOS": extraerla en aportes_autonomos como array de objetos:
   [{"per_desde":"MM/AAAA","per_hasta":"MM/AAAA","categoria":"A","meses":237,"importe_actualizado":1728.04}, ...]
@@ -916,11 +934,16 @@ REGLAS CRÍTICAS:
       art26_inconst:         pautas.art26_inconst       || false,
       res6_09_inconst:       pautas.res6_09_inconst     || false,
       tope_art9_inconst:     pautas.tope_art9_24463_inconst || false,
+      analizar_conf_pbu:     pautas.analizar_conf_pbu      || pautas.test_confiscatoriedad || false,
+      analizar_conf_art26:   pautas.analizar_conf_art26    || false,
+      analizar_conf_art9_24463: pautas.analizar_conf_art9_24463 || false,
+      analizar_conf_res6:    pautas.analizar_conf_res6     || false,
       ganancias_exento:      pautas.ganancias_exento    || false,
       villanustre_sac:       pautas.villanustre_sac     || false,
       makler:                pautas.makler              || false,
       volonte:               pautas.volonte             || false,
       tasa_interes:          pautas.tasa_interes        || 'Tasa Pasiva BCRA Com. 14290',
+      indice_movilidad:      pautas.indice_movilidad    || 'Ley 26.417 y Ley 27.426',
       citas_sentencia:       pautas.citas_encontradas   || [],
       zonas_grises:          pautas.zonas_grises        || [],
       notas_sentencia:       pautas.notas_interpretacion|| '',
@@ -1008,7 +1031,7 @@ const CAMPOS=[
   {k:'meses_pap_aut',l:'m meses aut post-94 PAP (ej: 9)',t:'number'},
   {k:'coef_pbu',l:'Coef. actualización PBU (Badaro, ej: 11.07)',t:'number'},
   {sec:'LEY 18.037 / 18.038 — Solo si aplica'},
-  {k:'ley18037_aplica',l:'Aplica Ley 18.037/18.038',t:'chk'},
+  {k:'ley18037_aplica',l:'Aplica Ley 18.037/18.038 (auto-detectado)',t:'chk'},
   {k:'ley18037_anios',l:'Años servicios con aportes',t:'number'},
   {k:'ley18037_promedio',l:'Promedio remuneraciones actualizado ($)',t:'number'},
   {k:'ley18037_periodo_promedio',l:'Períodos tomados para promedio (ej: 60)',t:'number'},
@@ -1021,22 +1044,28 @@ const CAMPOS=[
   {k:'modo_actualizacion',l:'Modo actualización rem.',t:'sel',ops:['Elliff/Blanco (ISBIC)','ANSeS Dec.807/16 (INGR+RIPTE)'],c:true},
   {k:'indice_movilidad',l:'Índice de movilidad',t:'text',c:true},
   {k:'tasa_interes',l:'Tasa de interés',t:'text'},
-  {sec:'TOPES Y CONFISCATORIEDAD — Datos para análisis'},
-  {k:'jurisprudencia_topes',l:'Jurisp. topes (IA)',t:'text'},
+  {sec:'TOPES — Ordenados por la sentencia'},
   {k:'haber_minimo_adq',l:'Haber mínimo override (auto si vacío)',t:'number'},
-  {k:'tope_rem_act',l:'Tope rem. actualizada Art.14 Res.6/09 ($ ej: 48598.08)',t:'number'},
+  {k:'tope_rem_act',l:'Tope rem. actualizada Art.14 Res.6/09 ($)',t:'number'},
   {k:'tope_art9_24463',l:'Haber máximo override Art.9 L.24463 (auto si vacío)',t:'number'},
-  {sec:'INCONSTITUCIONALIDADES'},
-  {k:'badaro_pbu',l:'Badaro PBU',t:'chk'},{k:'badaro_movilidad',l:'Badaro movilidad 2002-2006',t:'chk'},
-  {k:'art24_liberar',l:'Art. 24 Ley 24.241 — Liberar tope 35 años',t:'chk'},
-  {k:'art26_inconst',l:'Art. 26 Ley 24.241 — Liberar tope PC máx.',t:'chk'},
-  {k:'art9_inconst',l:'Art. 9/25 Ley 24.241 — Liberar tope remuneración',t:'chk'},
+  {sec:'INCONSTITUCIONALIDADES DECLARADAS — tildar solo si la sentencia lo ordena'},
+  {k:'badaro_pbu',l:'Reajuste PBU (Badaro/Marinati/Quiroga)',t:'chk'},
+  {k:'badaro_movilidad',l:'Movilidad Badaro 2002-2006 (IS INDEC)',t:'chk'},
+  {k:'art24_liberar',l:'Art. 24 — Liberar tope 35 años de servicios',t:'chk'},
+  {k:'art26_inconst',l:'Art. 26 — Liberar tope PC máxima',t:'chk'},
+  {k:'art9_inconst',l:'Art. 9/25 — Liberar tope de remuneración',t:'chk'},
   {k:'art9_24463_liberar',l:'Art. 9 Ley 24.463 — Liberar haber máximo',t:'chk'},
   {k:'res6_09_inconst',l:'Res. 6/09 — Liberar tope rem. actualizada',t:'chk'},
-  {k:'ganancias_exento',l:'Ganancias exento (García)',t:'chk'},
-  {k:'villanustre_sac',l:'SAC sobre dif. (Villanustre)',t:'chk'},
-  {k:'makler',l:'Makler — todos los períodos autónomos',t:'chk'},
-  {k:'volonte',l:'Volonté — act. categorías pre-1994',t:'chk'},
+  {sec:'ANÁLISIS DE CONFISCATORIEDAD — tildar para analizar cada tope'},
+  {k:'analizar_conf_pbu',l:'Analizar confiscatoriedad PBU (Actis Caporale — 15%)',t:'chk'},
+  {k:'analizar_conf_art26',l:'Analizar confiscatoriedad tope PC Art. 26',t:'chk'},
+  {k:'analizar_conf_art9_24463',l:'Analizar confiscatoriedad haber máximo Art. 9 Ley 24.463',t:'chk'},
+  {k:'analizar_conf_res6',l:'Analizar confiscatoriedad tope Res. 6/09',t:'chk'},
+  {sec:'OTROS PARÁMETROS'},
+  {k:'ganancias_exento',l:'Ganancias exento sobre retroactivos (García)',t:'chk'},
+  {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre)',t:'chk'},
+  {k:'makler',l:'Makler — computar todos los períodos autónomos',t:'chk'},
+  {k:'volonte',l:'Volonté — actualizar categorías autónomas pre-1994',t:'chk'},
   {sec:'NOTAS'},
   {k:'notas_sentencia',l:'⚠ Observaciones sentencia (IA)',t:'text',c:true},
   {k:'citas_no_reconocidas',l:'⚠ Citas no reconocidas — VERIFICAR',t:'text',c:true},
@@ -1058,9 +1087,11 @@ function mostrarEditor(d){
     const cls=miss?'field-input warn':'field-input';
     if(c.t==='chk'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-        <input type="checkbox" id="ed_${c.k}" ${v?'checked':''}>
-        <span>${v?'Sí':'No'}</span></label></div>`;
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="ed_${c.k}" ${v?'checked':''}
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        <span style="color:var(--muted);font-size:11px">${v?'✓ Activo':'Sin marcar'}</span>
+      </label></div>`;
     } else if(c.t==='sel'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
       <select class="${cls}" id="ed_${c.k}">${(c.opts||[]).map(o=>`<option value="${o}" ${v===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
@@ -1107,6 +1138,18 @@ function mostrarEditor(d){
   // Prellenar fecha de cese si hay fecha adquisición
   if(d.fecha_cese){
     document.getElementById('rem-cese').value=d.fecha_cese;
+  }
+
+  // Fecha de cierre: si no viene del documento, tomar el último día del mes anterior al hoy
+  if(!d.fecha_cierre){
+    const hoy = new Date();
+    const ultimoDiaMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    const mm = String(ultimoDiaMesAnterior.getMonth()+1).padStart(2,'0');
+    const yyyy = ultimoDiaMesAnterior.getFullYear();
+    const cierreDefault = `${mm}/${yyyy}`;
+    const elCierre = document.getElementById('ed_fecha_cierre');
+    if(elCierre && !elCierre.value) elCierre.value = cierreDefault;
+    S.datos.fecha_cierre = cierreDefault;
   }
 }
 
@@ -1360,6 +1403,8 @@ function calcularLiquidacion(d, rems){
 
   if(rems && rems.length>0){
     const remsDep=rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo!=='aut');
+    // Ley 18.037: remuneraciones ANUALES (máx 10) — se dividen por 12 para obtener mensual
+    const es18037 = d.ley_aplicada==='18037' || d.ley_aplicada==='18038';
     const remsAut=rems.filter(r=>r.rem && p(r.rem)>0 && r.tipo==='aut');
     const modoActLiq = d.modo_actualizacion && d.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
 
@@ -1367,8 +1412,11 @@ function calcularLiquidacion(d, rems){
       let suma=0;
       for(const r of remsDep){
         const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
-        suma+=p(r.rem)*coef;
+        // Ley 18.037: el importe es ANUAL → dividir por 12 para obtener mensual
+        const importe = es18037 ? p(r.rem)/12 : p(r.rem);
+        suma+=importe*coef;
       }
+      // Ley 18.037: el promedio es sobre los mejores años (hasta 10), ya en meses
       promDepReaj=Math.round(suma/remsDep.length*100)/100;
     }
     if(remsAut.length>0){
@@ -1457,7 +1505,7 @@ function calcularLiquidacion(d, rems){
   // ── PBU (Quiroga/ActisCaporale/Marinati) ──
   // HIRS_pbu = pbuAdmin + PC_con_rem6 + PAP_con_rem6 (usando W con tope pero sin Art26/Art24 aún)
   let confPBU = null;
-  if(pbuReaj > 0 && pbuA > 0){
+  if(pbuReaj > 0 && pbuA > 0 && (d.badaro_pbu || d.analizar_conf_pbu)){
     const hirs_pbu = pbuA + pcConRem6 + papConRem6;
     const merma    = pbuReaj - pbuA;
     const pct      = hirs_pbu>0 ? Math.round(merma*100/hirs_pbu*100)/100 : 0;
@@ -1468,10 +1516,12 @@ function calcularLiquidacion(d, rems){
   // ── Art. 9/25 + Art. 14 Res. 6/09 — tope remuneración actualizada ──
   let confRem6 = null;
   if(topeRemAct > 0 && (promDepSinTope !== promDepConTope || promAutSinTope !== promAutConTope)){
-    const hirs_rem = pbuFinal + pcSinTodo + papSinTodo; // haber pleno sin tope
+    const hirs_rem = pbuFinal + pcSinTodo + papSinTodo;
     const quita    = (pcSinTodo + papSinTodo) - (pcConRem6 + papConRem6);
     const pct      = hirs_rem>0 ? Math.round(quita*100/hirs_rem*100)/100 : 0;
-    const liberado = (d.res6_09_inconst || d.art9_inconst) && pct>15;
+    // Liberar si: inconstitucionalidad declarada O análisis ordenado y pct>15
+    const liberado = (d.res6_09_inconst || d.art9_inconst) ||
+                     (d.analizar_conf_res6 && pct>15);
     confRem6 = {hirs:hirs_rem, quita, pct, ok:pct>15, liberado,
       pcSin:pcSinTodo, papSin:papSinTodo, pcCon:pcConRem6, papCon:papConRem6};
   }
