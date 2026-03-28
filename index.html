@@ -767,6 +767,18 @@ CONFISCATORIEDAD Y TOPES:
 • "Res. 6/09" / "art. 14 Res. 6/09" / "tope remuneración actualizada inconstitucional"
   → res6_09_inconst = true
 
+AUTÓNOMOS:
+• "Makler" / "Makler Simón" (CSJN 20/05/2003)
+  → makler = true
+  → nota: computar la TOTALIDAD de años y categorías aportadas sin límite
+  → promedio = suma(importe_actualizado × meses) / total_meses sobre TODOS los períodos
+
+• "Volonté" / "Volonté Luis Mario" (CSJN 28/03/1985)
+  → volonte = true
+  → nota: para categorías autónomas PRE-julio/1994, preservar la proporción entre
+    categoría y haber mínimo vigente en cada período (actualización por paridad)
+  → para categorías POST-julio/1994: actualizar con ISBIC (Elliff/Blanco)
+
 OTROS:
 • "García" / "impuesto a las ganancias" / "exención retroactivo"
   → ganancias_exento = true
@@ -800,7 +812,7 @@ INSTRUCCIONES
 5. Si hay ambigüedad o algo que requiere decisión del auditor, registralo en "zonas_grises"
 
 Devolvé ÚNICAMENTE este JSON sin texto adicional ni markdown:
-{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"reajuste_pbu":false,"test_confiscatoriedad":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
+{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"reajuste_pbu":false,"test_confiscatoriedad":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"makler":false,"volonte":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
 
     contentSent.push({type:"text",text:PROMPT_FASE1});
 
@@ -851,7 +863,7 @@ La sentencia ya fue interpretada. La ley aplicada es: ${leyDesc}
 
 Analizá los documentos adjuntos (resolución otorgatoria ANSeS, reclamo administrativo, resoluciones complementarias) y extraé los datos numéricos en JSON puro sin texto ni markdown:
 
-{"caratula":"","expediente":"","cuil":"","nro_beneficio":"","fecha_adquisicion":"DD/MM/AAAA","fecha_cese":"MM/AAAA","fecha_reclamo_admin":"DD/MM/AAAA","fecha_inicio_retro":"MM/AAAA","fecha_cierre":"MM/AAAA","pbu_admin":null,"pc_admin":null,"pap_admin":null,"haber_admin_total":null,"prom_dep_admin":null,"prom_aut_admin":null,"anios_pbu":null,"anios_pc":null,"meses_pc_dep":null,"meses_pc_aut":null,"anios_pap":null,"meses_pap_dep":null,"meses_pap_aut":null,"coef_pbu":null,"haber_minimo_adq":null,"ley18037_porcentaje":null,"ley18037_promedio":null,"ley18037_anios":null,"pagos_parciales":[],"notas":""}
+{"caratula":"","expediente":"","cuil":"","nro_beneficio":"","fecha_adquisicion":"DD/MM/AAAA","fecha_cese":"MM/AAAA","fecha_reclamo_admin":"DD/MM/AAAA","fecha_inicio_retro":"MM/AAAA","fecha_cierre":"MM/AAAA","pbu_admin":null,"pc_admin":null,"pap_admin":null,"haber_admin_total":null,"prom_dep_admin":null,"prom_aut_admin":null,"anios_pbu":null,"anios_pc":null,"meses_pc_dep":null,"meses_pc_aut":null,"anios_pap":null,"meses_pap_dep":null,"meses_pap_aut":null,"coef_pbu":null,"haber_minimo_adq":null,"ley18037_porcentaje":null,"ley18037_promedio":null,"ley18037_anios":null,"aportes_autonomos":[],"pagos_parciales":[],"notas":""}
 
 REGLAS CRÍTICAS:
 - pbu_admin = concepto 930 (P.B.U.) — NUNCA el concepto 318 (Desc. O.Social)
@@ -861,6 +873,10 @@ REGLAS CRÍTICAS:
 - meses_pc_dep / meses_pc_aut: son MESES, no años
 - Si la ley es 18.037 o 18.038: ley18037_porcentaje = % aplicado (ej: 0.82), ley18037_promedio = promedio remuneraciones actualizado, ley18037_anios = años de servicios
 - fecha_inicio_retro = 2 años antes de fecha_reclamo_admin
+- Si hay tabla "DETALLE DE APORTES AUTONOMOS": extraerla en aportes_autonomos como array de objetos:
+  [{"per_desde":"MM/AAAA","per_hasta":"MM/AAAA","categoria":"A","meses":237,"importe_actualizado":1728.04}, ...]
+  donde importe_actualizado es el valor ya actualizado que figura en la tabla de ANSeS
+- El promedio autónomo (R) se calculará automáticamente como suma(importe×meses)/total_meses — no calcularlo vos
 - Si un dato no está en los documentos: null (no inventar)`;
 
     contentDoc.push({type:"text",text:PROMPT_FASE2});
@@ -902,6 +918,8 @@ REGLAS CRÍTICAS:
       tope_art9_inconst:     pautas.tope_art9_24463_inconst || false,
       ganancias_exento:      pautas.ganancias_exento    || false,
       villanustre_sac:       pautas.villanustre_sac     || false,
+      makler:                pautas.makler              || false,
+      volonte:               pautas.volonte             || false,
       tasa_interes:          pautas.tasa_interes        || 'Tasa Pasiva BCRA Com. 14290',
       citas_sentencia:       pautas.citas_encontradas   || [],
       zonas_grises:          pautas.zonas_grises        || [],
@@ -912,6 +930,19 @@ REGLAS CRÍTICAS:
       ley18037_aplica: ['18037','18038'].includes(pautas.ley_aplicada) ||
                        pautas.ley_aplicada?.startsWith('mixta'),
     };
+
+    // Calcular promedio autónomo desde tabla de aportes (Makler: todos los períodos)
+    if(datosDoc.aportes_autonomos?.length > 0){
+      const filas = datosDoc.aportes_autonomos.filter(f => f.meses > 0 && f.importe_actualizado > 0);
+      if(filas.length > 0){
+        const totalMeses = filas.reduce((s,f) => s + f.meses, 0);
+        const sumaPond   = filas.reduce((s,f) => s + f.meses * f.importe_actualizado, 0);
+        datosFinal.prom_aut_admin = Math.round(sumaPond / totalMeses * 100) / 100;
+        datosFinal.aportes_autonomos = datosDoc.aportes_autonomos;
+        console.log('Promedio autónomo calculado (Makler):', datosFinal.prom_aut_admin,
+          '| Meses:', totalMeses, '| Filas:', filas.length);
+      }
+    }
 
     Object.assign(S.datos, datosFinal);
 
@@ -966,7 +997,8 @@ const CAMPOS=[
   {k:'pap_admin',l:'PAP administrativa ($)',t:'number'},
   {k:'haber_admin_total',l:'Haber total ANSES ($)',t:'number',c:true},
   {k:'prom_dep_admin',l:'Promedio dependiente ANSES ($)',t:'number'},
-  {k:'prom_aut_admin',l:'Promedio autónomo ANSES ($)',t:'number'},
+  {k:'prom_aut_admin',l:'Promedio autónomo ($) — calculado de tabla',t:'number'},
+  {k:'aportes_autonomos_resumen',l:'Aportes autónomos (períodos/meses)',t:'textarea'},
   {k:'anios_pbu',l:'Años servicios PBU (total)',t:'number'},
   {k:'anios_pc',l:'N años PC total (ej: 18)',t:'number',c:true},
   {k:'meses_pc_dep',l:'n meses dep pre-94 PC (ej: 142)',t:'number',c:true},
@@ -1003,6 +1035,8 @@ const CAMPOS=[
   {k:'res6_09_inconst',l:'Res. 6/09 — Liberar tope rem. actualizada',t:'chk'},
   {k:'ganancias_exento',l:'Ganancias exento (García)',t:'chk'},
   {k:'villanustre_sac',l:'SAC sobre dif. (Villanustre)',t:'chk'},
+  {k:'makler',l:'Makler — todos los períodos autónomos',t:'chk'},
+  {k:'volonte',l:'Volonté — act. categorías pre-1994',t:'chk'},
   {sec:'NOTAS'},
   {k:'notas_sentencia',l:'⚠ Observaciones sentencia (IA)',t:'text',c:true},
   {k:'citas_no_reconocidas',l:'⚠ Citas no reconocidas — VERIFICAR',t:'text',c:true},
@@ -1058,6 +1092,15 @@ function mostrarEditor(d){
       ${sumaMismatch ? `La suma PBU+PC+PAP ($${sumaPrests.toLocaleString('es-AR',{minimumFractionDigits:2})}) no coincide con el haber total ANSeS ($${haberTotal.toLocaleString('es-AR',{minimumFractionDigits:2})}). ` : ''}
       Corregí manualmente los valores antes de calcular.
     </div>`;
+  }
+  // Si hay tabla de aportes autónomos, generar resumen para mostrar en el campo textarea
+  if(d.aportes_autonomos?.length > 0){
+    const filas = d.aportes_autonomos;
+    const totalMeses = filas.reduce((s,f)=>s+(f.meses||0),0);
+    const resumen = filas.map(f=>
+      `${f.per_desde||'?'}-${f.per_hasta||'?'} Cat.${f.categoria||'?'} ${f.meses||0}m $${(f.importe_actualizado||0).toLocaleString('es-AR',{minimumFractionDigits:2})}`
+    ).join('\n') + `\nTOTAL: ${totalMeses} meses | Prom: $${(d.prom_aut_admin||0).toLocaleString('es-AR',{minimumFractionDigits:2})}`;
+    d.aportes_autonomos_resumen = resumen;
   }
   document.getElementById('editor-fields').innerHTML=html;
 
@@ -1758,6 +1801,13 @@ function renderResultado(r){
   if(r.conf?.ok) alerts.push({t:'ok',m:`PBU confiscatoria (${r.conf.pct}% > 15%) → SE REAJUSTA con Badaro`});
   if(r.conf&&!r.conf.ok) alerts.push({t:'warn',m:`PBU quita ${r.conf.pct}% < 15% → NO supera umbral → sin reajuste`});
   if(d.ganancias_exento) alerts.push({t:'ok',m:'Ganancias: exento sobre retroactivos (García CSJN 2019)'});
+  if(d.makler && d.aportes_autonomos?.length > 0){
+    const totalMesesAut = (d.aportes_autonomos||[]).reduce((s,f)=>s+(f.meses||0),0);
+    alerts.push({t:'ok',m:`Makler: promedio autónomo sobre ${totalMesesAut} meses totales → $${fmt(d.prom_aut_admin||0)}`});
+  } else if(d.makler){
+    alerts.push({t:'warn',m:'Makler ordenado pero sin tabla de aportes autónomos — verificar extracción'});
+  }
+  if(d.volonte) alerts.push({t:'ok',m:'Volonté: categorías pre-1994 actualizadas por paridad con haber mínimo'});
   const aAdq=parseFecha(d.fecha_adquisicion)?.y||0;
   // Ley 18.037 — párrafo específico
   if(d.ley18037_aplica){
@@ -1953,6 +2003,12 @@ function renderDictamen(r){
         : `El tope del haber máximo del art. 9 de la ley 24.463 genera una quita del ${r.topes.confArt9_24463.pct}%, que no supera el umbral de confiscatoriedad del 15%, por lo que corresponde su aplicación.`
     });
   }
+
+  if(d.makler) parrafos.push({l:'Autónomos — Makler (CSJN 20/05/2003)',
+    t:`Respecto al cálculo de la Prestación Compensatoria y Adicional por Permanencia para los servicios autónomos, corresponde computar la totalidad de los años y categorías efectivamente aportadas, sin sujetarlo a límite alguno, conforme la doctrina de la CSJN en "Makler, Simón c/ ANSeS s/ inconstitucionalidad ley 24.463" (20/05/2003). El promedio mensual se determina ponderando el importe actualizado de cada categoría por la cantidad de meses aportados en ella, sobre la totalidad de los períodos.`});
+
+  if(d.volonte) parrafos.push({l:'Autónomos — Volonté (CSJN 28/03/1985)',
+    t:`En cuanto a la actualización de las categorías autónomas anteriores al 1° de julio de 1994, corresponde aplicar la doctrina del precedente "Volonté, Luis Mario s/ jubilación" (CSJN, 28/03/1985, Fallos 279:389), según la cual el esfuerzo contributivo del trabajador autónomo debe verse reflejado en el haber, preservando la proporción que existía entre la categoría aportada y el haber mínimo vigente en cada período. Para las categorías posteriores a julio de 1994 se aplica el índice ISBIC conforme "Elliff" y "Blanco".`});
 
   if(d.ganancias_exento) parrafos.push({l:'Ganancias — Exención',
     t:`En relación con el impuesto a las ganancias, conforme la doctrina de la CSJN en "García, María Isabel c/ AFIP" (sentencia del 26/03/2019) y "García Blanco, Esteban c/ Anses" (06/05/2021), corresponde declarar exentas del pago del impuesto a las ganancias a las retroactividades abonadas en efectivo, emergentes de la sentencia que se ejecuta.`});
