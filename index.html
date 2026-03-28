@@ -1087,11 +1087,10 @@ function mostrarEditor(d){
     const cls=miss?'field-input warn':'field-input';
     if(c.t==='chk'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer" onclick="toggleChkLabel(this)">
         <input type="checkbox" id="ed_${c.k}" ${v?'checked':''}
-          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"
-          onchange="this.nextElementSibling.textContent=this.checked?'✓ Activo':'Sin marcar';this.nextElementSibling.style.color=this.checked?'var(--accent)':'var(--muted)'">
-        <span style="color:${v?'var(--accent)':'var(--muted)'}">${v?'✓ Activo':'Sin marcar'}</span>
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        <span class="chk-label" style="color:${v?'var(--accent)':'var(--muted)'}">${v?'✓ Activo':'Sin marcar'}</span>
       </label></div>`;
     } else if(c.t==='sel'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
@@ -1152,6 +1151,18 @@ function mostrarEditor(d){
     if(elCierre && !elCierre.value) elCierre.value = cierreDefault;
     S.datos.fecha_cierre = cierreDefault;
   }
+}
+
+function toggleChkLabel(labelEl){
+  // Se llama al hacer click en el label — el browser ya cambió el estado del checkbox
+  // Usamos setTimeout para leer el estado actualizado después del click
+  setTimeout(()=>{
+    const chk  = labelEl.querySelector('input[type="checkbox"]');
+    const span = labelEl.querySelector('.chk-label');
+    if(!chk || !span) return;
+    span.textContent = chk.checked ? '✓ Activo' : 'Sin marcar';
+    span.style.color  = chk.checked ? 'var(--accent)' : 'var(--muted)';
+  }, 0);
 }
 
 function leerEditor(){
