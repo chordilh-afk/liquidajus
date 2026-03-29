@@ -147,7 +147,7 @@ select.field-input{cursor:pointer;}
     <div class="brand-mark">⚖</div>
     <div>
       <div class="brand-name">LiquidaJus</div>
-      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.0</div>
+      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.1</div>
     </div>
   </div>
   <div style="display:flex;gap:8px">
@@ -236,7 +236,7 @@ select.field-input{cursor:pointer;}
     <span style="background:#fff3e0;padding:1px 5px;border-radius:2px;margin:0 2px">$a jun/1983–jun/1985</span>
     <span style="background:#fff8e1;padding:1px 5px;border-radius:2px;margin:0 2px">₳ Australes jul/1985–dic/1991</span>
     <span style="background:#f5f5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$ desde ene/1992</span>
-    — Ingresá el importe en la moneda vigente del período. El ISBIC absorbe los cambios de moneda automáticamente.
+    — Ingresá el importe en la moneda vigente del período. El sistema convierte automáticamente a pesos ($) antes de aplicar el coeficiente ISBIC.
   </div>
 </div>
 
@@ -468,6 +468,48 @@ function getMonedaLabel(m, y){
   const mon = getMoneda(m, y);
   const labels = {'m$n':'Pesos m/n','$L':'Pesos Ley','$a':'Pesos Arg.','₳':'Australes','$':'Pesos'};
   return labels[mon] || '$';
+}
+
+// ══════════════════════════════════════════════════════
+// CONVERSIÓN DE MONEDA HISTÓRICA A PESOS ($)
+// ══════════════════════════════════════════════════════
+// El ISBIC es un índice continuo expresado en una unidad unificada.
+// Las remuneraciones históricas están en la moneda vigente del período.
+// Antes de multiplicar por el coeficiente ISBIC, hay que convertir a pesos ($).
+//
+// Cadena de conversión legal:
+//   m$n → $L (01/01/1970):  1 $L   =      100 m$n    (Ley 18.188)
+//   $L  → $a (01/06/1983):  1 $a   =   10.000 $L     (Ley 22.707)
+//   $a  → ₳  (15/06/1985):  1 ₳    =    1.000 $a     (Dec. 1096/85)
+//   ₳   → $  (01/01/1992):  1 $    =   10.000 ₳      (Dec. 2128/91)
+//
+// Factores acumulados a pesos ($):
+//   m$n → $: ÷ 10.000.000.000.000    (10^13)  = 100 × 10.000 × 1.000 × 10.000
+//   $L  → $: ÷ 100.000.000.000       (10^11)  = 10.000 × 1.000 × 10.000
+//   $a  → $: ÷ 10.000.000            (10^7)   = 1.000 × 10.000
+//   ₳   → $: ÷ 10.000                (10^4)   = 10.000
+// ══════════════════════════════════════════════════════
+function convertirAPesos(importe, m, y){
+  const moneda = getMoneda(m, y);
+  switch(moneda){
+    case 'm$n': return importe / 1e13;
+    case '$L':  return importe / 1e11;
+    case '$a':  return importe / 1e7;
+    case '₳':   return importe / 1e4;
+    default:    return importe;  // ya en pesos ($)
+  }
+}
+
+// Factor de conversión para mostrar en la tabla (solo informativo)
+function factorConversion(m, y){
+  const moneda = getMoneda(m, y);
+  switch(moneda){
+    case 'm$n': return 1e13;
+    case '$L':  return 1e11;
+    case '$a':  return 1e7;
+    case '₳':   return 1e4;
+    default:    return 1;
+  }
 }
 
 
@@ -1207,13 +1249,17 @@ function renderRemsTable(){
   let html='';
   for(let i=0;i<S.rems.length;i++){
     const r=S.rems[i];
-    let coef='', remAct='';
+    let coef='', remAct='', remEnPesos='';
     if(fadq && r.rem){
       const modoActT = S.datos.modo_actualizacion && S.datos.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
       const c=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActT);
+      // Convertir a pesos ($) antes de aplicar ISBIC
+      const importeEnPesos = convertirAPesos(p(r.rem), r.m, r.y);
+      const fc = factorConversion(r.m, r.y);
+      if(fc > 1) remEnPesos = importeEnPesos.toExponential(4);
       if(c){
         coef=c.toFixed(4);
-        remAct=fmt(Math.round(p(r.rem)*c*100)/100);
+        remAct=fmt(Math.round(importeEnPesos*c*100)/100);
       } else {
         coef='Sin datos ISBIC';
       }
@@ -1226,7 +1272,7 @@ function renderRemsTable(){
     html+=`<tr style="${bgMoneda?'background:'+bgMoneda:''}">
       <td><input value="${fmtP(r.m,r.y)}" onchange="S.rems[${i}].m=parseInt(this.value.split('/')[0]);S.rems[${i}].y=parseInt(this.value.split('/')[1]);recalcCoefs()" style="width:70px"></td>
       <td><input value="${r.rem}" onchange="S.rems[${i}].rem=this.value;recalcCoefs()" placeholder="0.00" style="width:100px"></td>
-      <td style="font-size:10px;font-weight:600;color:${moneda==='$'?'var(--muted)':moneda==='₳'?'#f57f17':moneda==='$a'?'#e65100':moneda==='$L'?'#6a1b9a':'#880e4f'}">${monedaLabel}</td>
+      <td style="font-size:10px;font-weight:600;color:${moneda==='$'?'var(--muted)':moneda==='₳'?'#f57f17':moneda==='$a'?'#e65100':moneda==='$L'?'#6a1b9a':'#880e4f'}">${monedaLabel}${remEnPesos?'<br><span style="font-size:8px;color:var(--muted);font-weight:400">≈$'+remEnPesos+'</span>':''}</td>
       <td><select onchange="S.rems[${i}].tipo=this.value" style="font-size:10px;border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:var(--bg)">
         <option value="dep" ${tipo==='dep'?'selected':''}>Dep.</option>
         <option value="aut" ${tipo==='aut'?'selected':''}>Aut.</option>
@@ -1424,8 +1470,11 @@ function calcularLiquidacion(d, rems){
       let suma=0;
       for(const r of remsDep){
         const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
+        // Convertir moneda histórica a pesos ($) antes de aplicar ISBIC
+        const importeOriginal = p(r.rem);
+        const importeEnPesos = convertirAPesos(importeOriginal, r.m, r.y);
         // Ley 18.037: el importe es ANUAL → dividir por 12 para obtener mensual
-        const importe = es18037 ? p(r.rem)/12 : p(r.rem);
+        const importe = es18037 ? importeEnPesos/12 : importeEnPesos;
         suma+=importe*coef;
       }
       // Ley 18.037: el promedio es sobre los mejores años (hasta 10), ya en meses
@@ -1435,7 +1484,8 @@ function calcularLiquidacion(d, rems){
       let suma=0;
       for(const r of remsAut){
         const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
-        suma+=p(r.rem)*coef;
+        // Convertir moneda histórica a pesos ($) antes de aplicar ISBIC
+        suma+=convertirAPesos(p(r.rem), r.m, r.y)*coef;
       }
       promAutReaj=Math.round(suma/remsAut.length*100)/100;
     }
@@ -1469,7 +1519,8 @@ function calcularLiquidacion(d, rems){
       let sumaConTope=0, sumaSinTope=0;
       for(const r of remsDep){
         const coef = coefActualizacion(r.m,r.y,fadq.m,fadq.y)||1;
-        const act  = p(r.rem)*coef;
+        // Convertir moneda histórica a pesos ($) antes de aplicar ISBIC
+        const act  = convertirAPesos(p(r.rem), r.m, r.y)*coef;
         sumaSinTope += act;
         sumaConTope += Math.min(act, topeRemAct);
       }
@@ -1848,7 +1899,7 @@ function renderResultado(r){
     <div class="liq-wrap">
       <div class="liq-hdr">
         <div><div class="liq-title">${d.caratula||'—'}</div><div class="liq-sub">Expte. ${d.expediente||'—'} · Ley ${d.ley_aplicada||'—'} · ${d.regimen||'—'}</div></div>
-        <div class="liq-meta">LiquidaJus v4.0<br>${new Date().toLocaleDateString('es-AR')}</div>
+        <div class="liq-meta">LiquidaJus v4.1<br>${new Date().toLocaleDateString('es-AR')}</div>
       </div>
       <div class="liq-datos">
         <div><div class="ld-label">CUIL</div><div class="ld-value">${d.cuil||'—'}</div></div>
@@ -2211,6 +2262,50 @@ function exportarLiq(){
 // UTILS
 function f2b64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=()=>rej(new Error('Error leyendo '+file.name)); r.readAsDataURL(file); }); }
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ═══════════════════════════════════════════════════════
+// TEST — Verificación de conversión de moneda histórica
+// Se ejecuta al cargar. Comprueba que una remuneración
+// convertida y actualizada da resultado consistente en
+// las fronteras de cambio de moneda.
+// ═══════════════════════════════════════════════════════
+(function testConversionMoneda(){
+  const tests = [
+    // [nombre, mes, año, moneda_esperada, importe, divEsperado]
+    ['m$n dic/1969', 12, 1969, 'm$n', 10000, 1e13],
+    ['$L  ene/1970', 1,  1970, '$L',  100,   1e11],
+    ['$L  may/1983', 5,  1983, '$L',  100000,1e11],
+    ['$a  jun/1983', 6,  1983, '$a',  10,    1e7],
+    ['$a  jun/1985', 6,  1985, '$a',  1000,  1e7],
+    ['₳   jul/1985', 7,  1985, '₳',   1,     1e4],
+    ['₳   dic/1991', 12, 1991, '₳',   5000000, 1e4],
+    ['$   ene/1992', 1,  1992, '$',   500,   1],
+  ];
+  let ok=true;
+  for(const [nom,m,y,monExp,imp,divExp] of tests){
+    const mon = getMoneda(m,y);
+    const fc  = factorConversion(m,y);
+    if(mon!==monExp){ console.error(`TEST FAIL ${nom}: moneda=${mon}, esperada=${monExp}`); ok=false; }
+    if(fc!==divExp){  console.error(`TEST FAIL ${nom}: factor=${fc}, esperado=${divExp}`); ok=false; }
+  }
+  // Cross-boundary test: $L may/1983 vs $a jun/1983
+  // Un salario de $L 100.000 en may/1983 ≈ $a 11.67 en jun/1983 (con inflación mensual)
+  const coefMay83 = coefActualizacion(5,1983,2,2009,'isbic');
+  const coefJun83 = coefActualizacion(6,1983,2,2009,'isbic');
+  const actMay = convertirAPesos(100000,5,1983) * coefMay83; // $L 100.000
+  const actJun = convertirAPesos(11.67, 6,1983) * coefJun83; // $a 11.67 (≈ equivalente con inflación)
+  const diff = Math.abs(actMay - actJun) / actMay;
+  if(diff > 0.02){ console.error(`TEST FAIL cross-boundary: $L=$${actMay.toFixed(2)} vs $a=$${actJun.toFixed(2)} (diff ${(diff*100).toFixed(1)}%)`); ok=false; }
+  // Cross-boundary test: ₳ dic/1991 vs $ ene/1992
+  const coefDic91 = coefActualizacion(12,1991,2,2009,'isbic');
+  const coefEne92 = coefActualizacion(1,1992,2,2009,'isbic');
+  const actDic = convertirAPesos(5000000,12,1991) * coefDic91; // ₳ 5.000.000
+  const actEne = convertirAPesos(500.68, 1,1992) * coefEne92;  // $ 500.68 (≈ equivalente)
+  const diff2 = Math.abs(actDic - actEne) / actDic;
+  if(diff2 > 0.02){ console.error(`TEST FAIL cross-boundary: ₳=$${actDic.toFixed(2)} vs $=$${actEne.toFixed(2)} (diff ${(diff2*100).toFixed(1)}%)`); ok=false; }
+  if(ok) console.log('✓ Test conversión moneda histórica: OK — todas las fronteras son consistentes');
+  else   console.warn('✗ Test conversión moneda histórica: FALLÓ — ver errores arriba');
+})();
 
 // INIT
 document.getElementById('hist-count').textContent=S.historial.length;
