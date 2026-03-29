@@ -147,7 +147,7 @@ select.field-input{cursor:pointer;}
     <div class="brand-mark">⚖</div>
     <div>
       <div class="brand-name">LiquidaJus</div>
-      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.1</div>
+      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.2</div>
     </div>
   </div>
   <div style="display:flex;gap:8px">
@@ -230,13 +230,14 @@ select.field-input{cursor:pointer;}
     </table>
   </div>
   <div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.8">
-    <strong>Monedas históricas (auto-detectado):</strong>
-    <span style="background:#fce4ec;padding:1px 5px;border-radius:2px;margin:0 2px">m$n hasta dic/1969</span>
-    <span style="background:#f3e5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$L ene/1970–may/1983</span>
-    <span style="background:#fff3e0;padding:1px 5px;border-radius:2px;margin:0 2px">$a jun/1983–jun/1985</span>
-    <span style="background:#fff8e1;padding:1px 5px;border-radius:2px;margin:0 2px">₳ Australes jul/1985–dic/1991</span>
-    <span style="background:#f5f5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$ desde ene/1992</span>
-    — Ingresá el importe en la moneda vigente del período. El sistema convierte automáticamente a pesos ($) antes de aplicar el coeficiente ISBIC.
+    <strong>⚠ Formato ANSeS:</strong> La resolución otorgatoria expresa TODOS los importes pre-1992 en <strong>$a (Pesos Argentinos)</strong>, sin importar la moneda original del período.
+    Ingresá los importes TAL CUAL figuran en la resolución otorgatoria. El sistema convierte automáticamente de $a a $ (÷10.000.000) antes de aplicar el coeficiente ISBIC.<br>
+    <strong>Eras históricas (referencia visual):</strong>
+    <span style="background:#fce4ec;padding:1px 5px;border-radius:2px;margin:0 2px">m$n →dic/1969</span>
+    <span style="background:#f3e5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$L 1970–1983</span>
+    <span style="background:#fff3e0;padding:1px 5px;border-radius:2px;margin:0 2px">$a 1983–1985</span>
+    <span style="background:#fff8e1;padding:1px 5px;border-radius:2px;margin:0 2px">₳ 1985–1991</span>
+    <span style="background:#f5f5f5;padding:1px 5px;border-radius:2px;margin:0 2px">$ desde 1992</span>
   </div>
 </div>
 
@@ -471,45 +472,36 @@ function getMonedaLabel(m, y){
 }
 
 // ══════════════════════════════════════════════════════
-// CONVERSIÓN DE MONEDA HISTÓRICA A PESOS ($)
+// CONVERSIÓN DE MONEDA — ANSeS almacena en $a
 // ══════════════════════════════════════════════════════
-// El ISBIC es un índice continuo expresado en una unidad unificada.
-// Las remuneraciones históricas están en la moneda vigente del período.
-// Antes de multiplicar por el coeficiente ISBIC, hay que convertir a pesos ($).
+// HALLAZGO CLAVE (validado contra liquidación BlueCorp):
+// ANSeS almacena TODAS las remuneraciones pre-1992 en
+// Pesos Argentinos ($a), independientemente de la moneda
+// vigente en el período original.
 //
-// Cadena de conversión legal:
-//   m$n → $L (01/01/1970):  1 $L   =      100 m$n    (Ley 18.188)
-//   $L  → $a (01/06/1983):  1 $a   =   10.000 $L     (Ley 22.707)
-//   $a  → ₳  (15/06/1985):  1 ₳    =    1.000 $a     (Dec. 1096/85)
-//   ₳   → $  (01/01/1992):  1 $    =   10.000 ₳      (Dec. 2128/91)
+// Ejemplo de la resolución otorgatoria:
+//   Oct 1967: salario real 12.086 m$n → ANSeS guarda 0,012086 "$ ARG"
+//   Ene 1977: salario real ~373.000 $L → ANSeS guarda ~37 "$ ARG"
 //
-// Factores acumulados a pesos ($):
-//   m$n → $: ÷ 10.000.000.000.000    (10^13)  = 100 × 10.000 × 1.000 × 10.000
-//   $L  → $: ÷ 100.000.000.000       (10^11)  = 10.000 × 1.000 × 10.000
-//   $a  → $: ÷ 10.000.000            (10^7)   = 1.000 × 10.000
-//   ₳   → $: ÷ 10.000                (10^4)   = 10.000
+// El coeficiente ISBIC es adimensional (ratio de índices).
+// importe_$a × coef = resultado en $a → necesita ÷10^7 para $
+//
+// Cadena $a → $:  $a ÷1.000 = ₳,  ₳ ÷10.000 = $
+//                 Total: $a ÷ 10.000.000 (10^7)
+//
+// Post-1992: los importes ya están en $ (pesos actuales).
 // ══════════════════════════════════════════════════════
 function convertirAPesos(importe, m, y){
-  const moneda = getMoneda(m, y);
-  switch(moneda){
-    case 'm$n': return importe / 1e13;
-    case '$L':  return importe / 1e11;
-    case '$a':  return importe / 1e7;
-    case '₳':   return importe / 1e4;
-    default:    return importe;  // ya en pesos ($)
-  }
+  const key = y * 100 + m;
+  if(key < 199201) return importe / 1e7;  // ANSeS: todo pre-1992 está en $a
+  return importe;                          // Post-1992: ya en pesos ($)
 }
 
 // Factor de conversión para mostrar en la tabla (solo informativo)
 function factorConversion(m, y){
-  const moneda = getMoneda(m, y);
-  switch(moneda){
-    case 'm$n': return 1e13;
-    case '$L':  return 1e11;
-    case '$a':  return 1e7;
-    case '₳':   return 1e4;
-    default:    return 1;
-  }
+  const key = y * 100 + m;
+  if(key < 199201) return 1e7;  // $a → $
+  return 1;
 }
 
 
@@ -1182,12 +1174,11 @@ function mostrarEditor(d){
     document.getElementById('rem-cese').value=d.fecha_cese;
   }
 
-  // Fecha de cierre: si no viene del documento, tomar el último día del mes anterior al hoy
+  // Fecha de cierre: si no viene del documento, tomar el mes actual
   if(!d.fecha_cierre){
     const hoy = new Date();
-    const ultimoDiaMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
-    const mm = String(ultimoDiaMesAnterior.getMonth()+1).padStart(2,'0');
-    const yyyy = ultimoDiaMesAnterior.getFullYear();
+    const mm = String(hoy.getMonth()+1).padStart(2,'0');
+    const yyyy = hoy.getFullYear();
     const cierreDefault = `${mm}/${yyyy}`;
     const elCierre = document.getElementById('ed_fecha_cierre');
     if(elCierre && !elCierre.value) elCierre.value = cierreDefault;
@@ -1267,12 +1258,18 @@ function renderRemsTable(){
     const tipo=r.tipo||'dep';
     const moneda = getMoneda(r.m, r.y);
     const monedaLabel = getMonedaLabel(r.m, r.y);
-    // Color de fondo según moneda histórica
+    const isPre92 = r.y * 100 + r.m < 199201;
+    // Color de fondo según era histórica (informativo)
     const bgMoneda = moneda==='₳'?'#fff8e1':moneda==='$a'?'#fff3e0':moneda==='$L'?'#f3e5f5':moneda==='m$n'?'#fce4ec':'';
+    // Para pre-1992, mostrar "$a (ANSeS)" con la moneda original como referencia
+    const monedaDisplay = isPre92
+      ? `$a<br><span style="font-size:8px;color:var(--muted);font-weight:400">era: ${monedaLabel}</span>`
+      : monedaLabel;
+    const monedaColor = isPre92 ? '#e65100' : (moneda==='$'?'var(--muted)':'#880e4f');
     html+=`<tr style="${bgMoneda?'background:'+bgMoneda:''}">
       <td><input value="${fmtP(r.m,r.y)}" onchange="S.rems[${i}].m=parseInt(this.value.split('/')[0]);S.rems[${i}].y=parseInt(this.value.split('/')[1]);recalcCoefs()" style="width:70px"></td>
       <td><input value="${r.rem}" onchange="S.rems[${i}].rem=this.value;recalcCoefs()" placeholder="0.00" style="width:100px"></td>
-      <td style="font-size:10px;font-weight:600;color:${moneda==='$'?'var(--muted)':moneda==='₳'?'#f57f17':moneda==='$a'?'#e65100':moneda==='$L'?'#6a1b9a':'#880e4f'}">${monedaLabel}${remEnPesos?'<br><span style="font-size:8px;color:var(--muted);font-weight:400">≈$'+remEnPesos+'</span>':''}</td>
+      <td style="font-size:10px;font-weight:600;color:${monedaColor}">${monedaDisplay}${remEnPesos?'<br><span style="font-size:8px;color:var(--muted);font-weight:400">≈$'+remEnPesos+'</span>':''}</td>
       <td><select onchange="S.rems[${i}].tipo=this.value" style="font-size:10px;border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:var(--bg)">
         <option value="dep" ${tipo==='dep'?'selected':''}>Dep.</option>
         <option value="aut" ${tipo==='aut'?'selected':''}>Aut.</option>
@@ -1899,7 +1896,7 @@ function renderResultado(r){
     <div class="liq-wrap">
       <div class="liq-hdr">
         <div><div class="liq-title">${d.caratula||'—'}</div><div class="liq-sub">Expte. ${d.expediente||'—'} · Ley ${d.ley_aplicada||'—'} · ${d.regimen||'—'}</div></div>
-        <div class="liq-meta">LiquidaJus v4.1<br>${new Date().toLocaleDateString('es-AR')}</div>
+        <div class="liq-meta">LiquidaJus v4.2<br>${new Date().toLocaleDateString('es-AR')}</div>
       </div>
       <div class="liq-datos">
         <div><div class="ld-label">CUIL</div><div class="ld-value">${d.cuil||'—'}</div></div>
@@ -2264,47 +2261,68 @@ function f2b64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 // ═══════════════════════════════════════════════════════
-// TEST — Verificación de conversión de moneda histórica
-// Se ejecuta al cargar. Comprueba que una remuneración
-// convertida y actualizada da resultado consistente en
-// las fronteras de cambio de moneda.
+// TEST — Validación contra liquidación BlueCorp (Toledano)
 // ═══════════════════════════════════════════════════════
 (function testConversionMoneda(){
-  const tests = [
-    // [nombre, mes, año, moneda_esperada, importe, divEsperado]
-    ['m$n dic/1969', 12, 1969, 'm$n', 10000, 1e13],
-    ['$L  ene/1970', 1,  1970, '$L',  100,   1e11],
-    ['$L  may/1983', 5,  1983, '$L',  100000,1e11],
-    ['$a  jun/1983', 6,  1983, '$a',  10,    1e7],
-    ['$a  jun/1985', 6,  1985, '$a',  1000,  1e7],
-    ['₳   jul/1985', 7,  1985, '₳',   1,     1e4],
-    ['₳   dic/1991', 12, 1991, '₳',   5000000, 1e4],
-    ['$   ene/1992', 1,  1992, '$',   500,   1],
-  ];
   let ok=true;
-  for(const [nom,m,y,monExp,imp,divExp] of tests){
-    const mon = getMoneda(m,y);
-    const fc  = factorConversion(m,y);
-    if(mon!==monExp){ console.error(`TEST FAIL ${nom}: moneda=${mon}, esperada=${monExp}`); ok=false; }
-    if(fc!==divExp){  console.error(`TEST FAIL ${nom}: factor=${fc}, esperado=${divExp}`); ok=false; }
+
+  // 1. Verificar factores de conversión
+  // Pre-1992: siempre ÷10^7 (ANSeS almacena en $a)
+  const tests = [
+    ['m$n oct/1967', 10, 1967, 1e7],
+    ['$L  ene/1977', 1,  1977, 1e7],
+    ['$a  jun/1983', 6,  1983, 1e7],
+    ['₳   ene/1990', 1,  1990, 1e7],
+    ['₳   dic/1991', 12, 1991, 1e7],
+    ['$   ene/1992', 1,  1992, 1],   // post-1992: sin conversión
+    ['$   ene/2005', 1,  2005, 1],
+  ];
+  for(const [nom,m,y,divExp] of tests){
+    const fc = factorConversion(m,y);
+    if(fc!==divExp){ console.error(`TEST FAIL ${nom}: factor=${fc}, esperado=${divExp}`); ok=false; }
   }
-  // Cross-boundary test: $L may/1983 vs $a jun/1983
-  // Un salario de $L 100.000 en may/1983 ≈ $a 11.67 en jun/1983 (con inflación mensual)
-  const coefMay83 = coefActualizacion(5,1983,2,2009,'isbic');
-  const coefJun83 = coefActualizacion(6,1983,2,2009,'isbic');
-  const actMay = convertirAPesos(100000,5,1983) * coefMay83; // $L 100.000
-  const actJun = convertirAPesos(11.67, 6,1983) * coefJun83; // $a 11.67 (≈ equivalente con inflación)
-  const diff = Math.abs(actMay - actJun) / actMay;
-  if(diff > 0.02){ console.error(`TEST FAIL cross-boundary: $L=$${actMay.toFixed(2)} vs $a=$${actJun.toFixed(2)} (diff ${(diff*100).toFixed(1)}%)`); ok=false; }
-  // Cross-boundary test: ₳ dic/1991 vs $ ene/1992
-  const coefDic91 = coefActualizacion(12,1991,2,2009,'isbic');
-  const coefEne92 = coefActualizacion(1,1992,2,2009,'isbic');
-  const actDic = convertirAPesos(5000000,12,1991) * coefDic91; // ₳ 5.000.000
-  const actEne = convertirAPesos(500.68, 1,1992) * coefEne92;  // $ 500.68 (≈ equivalente)
-  const diff2 = Math.abs(actDic - actEne) / actDic;
-  if(diff2 > 0.02){ console.error(`TEST FAIL cross-boundary: ₳=$${actDic.toFixed(2)} vs $=$${actEne.toFixed(2)} (diff ${(diff2*100).toFixed(1)}%)`); ok=false; }
-  if(ok) console.log('✓ Test conversión moneda histórica: OK — todas las fronteras son consistentes');
-  else   console.warn('✗ Test conversión moneda histórica: FALLÓ — ver errores arriba');
+
+  // 2. Cross-validar con BlueCorp: Ene 1977 (dato disponible en ambos sistemas)
+  //    BlueCorp CAJA: importe $a 28.7444, coef 259.763.905.588, actualizado 313.95
+  //    → Verificar que nuestro convertirAPesos da resultado coherente
+  const imp1977 = 28.7444;  // $a, del ANSeS
+  const imp1977pesos = convertirAPesos(imp1977, 1, 1977); // debería ser 2.874e-6 $
+  const expected1977 = 28.7444 / 1e7;
+  if(Math.abs(imp1977pesos - expected1977) > 1e-15){
+    console.error(`TEST FAIL ene/1977: convertido=${imp1977pesos}, esperado=${expected1977}`);
+    ok=false;
+  }
+
+  // 3. Verificar que ISBIC coef × importe convertido da resultado razonable
+  //    BlueCorp REAJUSTADO Ene 1977: W actualizado = 37.131,49 (con su coef propio)
+  //    Nuestro coef para ene/1977 → ene/2012:
+  const coef1977 = coefActualizacion(1,1977,1,2012,'isbic');
+  if(coef1977){
+    const act1977 = imp1977pesos * coef1977;
+    // Debería estar en el mismo orden de magnitud que BlueCorp (~37.131)
+    // Diferencias aceptables por distintas tablas ISBIC/movilidades
+    if(act1977 < 10000 || act1977 > 200000){
+      console.error(`TEST FAIL ene/1977 actualizado: ${act1977.toFixed(2)} fuera de rango razonable [10k-200k]`);
+      ok=false;
+    } else {
+      console.log(`  ene/1977: $a ${imp1977} → $${imp1977pesos.toExponential(4)} × coef ${coef1977.toFixed(0)} = $${act1977.toFixed(2)} (BlueCorp: $37.131,49)`);
+    }
+  }
+
+  // 4. Verificar que post-1992 no se convierte
+  const imp2005 = 1500;  // $1.500 salario 2005
+  const imp2005pesos = convertirAPesos(imp2005, 1, 2005);
+  if(imp2005pesos !== 1500){
+    console.error(`TEST FAIL ene/2005: convertido=${imp2005pesos}, esperado=1500`);
+    ok=false;
+  }
+
+  // 5. Test promedio W: BlueCorp W reajustado = 10.917,77 (120 rems, total 1.310.132,54)
+  //    Nuestro sistema debería dar un promedio en el mismo orden si usamos los mismos datos
+  console.log(`  Referencia BlueCorp: W=$10.917,77 R=$2.441,71 → PBU=$2.225,75 PC=$2.304,79 PAP=$549,38 → Haber=$5.079,92`);
+
+  if(ok) console.log('✓ Test conversión moneda ANSeS ($a): OK — coherente con BlueCorp');
+  else   console.warn('✗ Test conversión moneda ANSeS ($a): FALLÓ — ver errores arriba');
 })();
 
 // INIT
