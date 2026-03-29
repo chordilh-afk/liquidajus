@@ -804,8 +804,11 @@ CONFISCATORIEDAD Y TOPES:
   → nota: cuando la sentencia ordena "verificar confiscatoriedad" o "analizar el tope",
     marcar el campo analizar correspondiente aunque no declare la inconstitucionalidad
 
-• "Marinati" (Sala III CFSS) / "Quiroga" / "ActisCaporale + reajuste PBU"
-  → reajuste_pbu = true (si quita PBU supera 15% → se reajusta)
+• "Marinati" (Sala III CFSS) / "Quiroga" (CSJN 11/11/2014)
+  → Si ordena actualizar PBU por ISBIC (Elliff): actualizacion_pbu = "isbic"
+  → Si ordena actualizar PBU por Nivel General de Remuneraciones: actualizacion_pbu = "ngr"
+  → Si NO menciona reajuste de PBU: actualizacion_pbu = "sin_reajuste"
+  → Si ordena analizar confiscatoriedad de PBU: analizar_conf_pbu = true
 
 • "Pellegrini" / "art. 9 ley 24.463" / "haber máximo inconstitucional"
   → tope_art9_24463_inconst = true
@@ -861,7 +864,7 @@ INSTRUCCIONES
 5. Si hay ambigüedad o algo que requiere decisión del auditor, registralo en "zonas_grises"
 
 Devolvé ÚNICAMENTE este JSON sin texto adicional ni markdown:
-{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"indice_movilidad":"Ley 26.417 y Ley 27.426","reajuste_pbu":false,"test_confiscatoriedad":false,"analizar_conf_pbu":false,"analizar_conf_art26":false,"analizar_conf_art9_24463":false,"analizar_conf_res6":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"makler":false,"volonte":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
+{"ley_aplicada":"24241","regimen":"dependiente","indice_actualizacion":"ISBIC","isbic_sin_limite":true,"ingr_hasta":null,"ripte_desde":null,"ripte_hasta":null,"badaro_movilidad":false,"badaro_desde":null,"badaro_hasta":null,"indice_movilidad":"Ley 26.417 y Ley 27.426","actualizacion_pbu":"sin_reajuste","test_confiscatoriedad":false,"analizar_conf_pbu":false,"analizar_conf_art26":false,"analizar_conf_art9_24463":false,"analizar_conf_res6":false,"art26_inconst":false,"res6_09_inconst":false,"tope_art9_24463_inconst":false,"ganancias_exento":false,"villanustre_sac":false,"makler":false,"volonte":false,"tasa_interes":"Tasa Pasiva BCRA Com. 14290","fecha_inicio_retro":null,"ley18037_porcentaje_min":null,"ley18037_porcentaje_max":null,"ley18037_meses_promedio":null,"citas_encontradas":[],"zonas_grises":[],"notas_interpretacion":""}`;
 
     contentSent.push({type:"text",text:PROMPT_FASE1});
 
@@ -964,7 +967,7 @@ REGLAS CRÍTICAS:
                                ? 'ANSeS Dec.807/16 (INGR+RIPTE)'
                                : 'Elliff/Blanco (ISBIC)',
       badaro_movilidad:      pautas.badaro_movilidad    || false,
-      reajuste_pbu:          pautas.reajuste_pbu        || false,
+      actualizacion_pbu:      pautas.actualizacion_pbu   || 'sin_reajuste',
       art26_inconst:         pautas.art26_inconst       || false,
       res6_09_inconst:       pautas.res6_09_inconst     || false,
       tope_art9_inconst:     pautas.tope_art9_24463_inconst || false,
@@ -1063,7 +1066,7 @@ const CAMPOS=[
   {k:'anios_pap',l:'N años PAP total (ej: 13)',t:'number',c:true},
   {k:'meses_pap_dep',l:'n meses dep post-94 PAP (ej: 144)',t:'number',c:true},
   {k:'meses_pap_aut',l:'m meses aut post-94 PAP (ej: 9)',t:'number'},
-  {k:'coef_pbu',l:'Coef. actualización PBU (Badaro, ej: 11.07)',t:'number'},
+  {k:'coef_pbu',l:'Coef. PBU override (auto para ISBIC, manual para NGR)',t:'number'},
   {sec:'LEY 18.037 / 18.038 — Solo si aplica'},
   {k:'ley18037_aplica',l:'Aplica Ley 18.037/18.038 (auto-detectado)',t:'chk'},
   {k:'ley18037_anios',l:'Años servicios con aportes',t:'number'},
@@ -1082,8 +1085,10 @@ const CAMPOS=[
   {k:'haber_minimo_adq',l:'Haber mínimo override (auto si vacío)',t:'number'},
   {k:'tope_rem_act',l:'Tope rem. actualizada Art.14 Res.6/09 ($)',t:'number'},
   {k:'tope_art9_24463',l:'Haber máximo override Art.9 L.24463 (auto si vacío)',t:'number'},
+  {sec:'REAJUSTE PBU — Método de actualización del MOPRE (Quiroga CSJN)'},
+  {k:'actualizacion_pbu',l:'Actualización PBU',t:'sel',opts:['sin_reajuste','isbic','ngr']},
+  {k:'analizar_conf_pbu',l:'Analizar confiscatoriedad PBU (Marinati Sala III — 15%)',t:'chk'},
   {sec:'INCONSTITUCIONALIDADES DECLARADAS — tildar solo si la sentencia lo ordena'},
-  {k:'badaro_pbu',l:'Reajuste PBU (Badaro/Marinati/Quiroga)',t:'chk'},
   {k:'badaro_movilidad',l:'Movilidad Badaro 2002-2006 (IS INDEC)',t:'chk'},
   {k:'art24_liberar',l:'Art. 24 — Liberar tope 35 años de servicios',t:'chk'},
   {k:'art26_inconst',l:'Art. 26 — Liberar tope PC máxima',t:'chk'},
@@ -1091,7 +1096,6 @@ const CAMPOS=[
   {k:'art9_24463_liberar',l:'Art. 9 Ley 24.463 — Liberar haber máximo',t:'chk'},
   {k:'res6_09_inconst',l:'Res. 6/09 — Liberar tope rem. actualizada',t:'chk'},
   {sec:'ANÁLISIS DE CONFISCATORIEDAD — tildar para analizar cada tope'},
-  {k:'analizar_conf_pbu',l:'Analizar confiscatoriedad PBU (Actis Caporale — 15%)',t:'chk'},
   {k:'analizar_conf_art26',l:'Analizar confiscatoriedad tope PC Art. 26',t:'chk'},
   {k:'analizar_conf_art9_24463',l:'Analizar confiscatoriedad haber máximo Art. 9 Ley 24.463',t:'chk'},
   {k:'analizar_conf_res6',l:'Analizar confiscatoriedad tope Res. 6/09',t:'chk'},
@@ -1450,7 +1454,7 @@ function calcularLiquidacion(d, rems){
 
   // PBU admin
   const pbuA=p(d.pbu_admin), pcA=p(d.pc_admin), papA=p(d.pap_admin);
-  const haberCajaInicial=pbuA+pcA+papA;
+  let haberCajaInicial=pbuA+pcA+papA;
 
   // ── HABER REAJUSTADO ──
   // Calcular promedios actualizados con ISBIC
@@ -1551,27 +1555,60 @@ function calcularLiquidacion(d, rems){
   const papConArt24 = calcPC(N_pap_con24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
 
   // ══════════════════════════════════════════════════════
-  // PBU reajustada (Badaro): $200 × Coef.Act.PBU
+  // PBU reajustada (Quiroga CSJN 11/11/2014)
   // ══════════════════════════════════════════════════════
-  const coefPBU = p(d.coef_pbu);
-  const pbuReaj = d.badaro_pbu && coefPBU>0 ? Math.round(200*coefPBU*100)/100 : pbuA;
+  // MOPRE = $80 congelado desde sep/1997
+  // PBU original = 2.5 × MOPRE = $200
+  // Reajuste: PBU = $200 × coef_actualización(sep/1997 → fecha_adq)
+  //
+  // Modos:
+  //   "isbic" → coef auto-calculado con ISBIC (Elliff/Blanco)
+  //   "ngr"   → coef manual (Nivel General Remuneraciones)
+  //   "sin_reajuste" → PBU de caja sin cambios
+  // ══════════════════════════════════════════════════════
+  let pbuReaj = pbuA;
+  let coefPBU_usado = 0;
+  const modoPBU = d.actualizacion_pbu || 'sin_reajuste';
 
-  // ══════════════════════════════════════════════════════
-  // ANÁLISIS DE CONFISCATORIEDAD DE TOPES
-  // Fórmula uniforme: % = (haber_sin_tope - haber_con_tope) × 100 / HIRS_sin_tope
-  // HIRS = haber inicial pleno (sin el tope que se está analizando)
-  // ══════════════════════════════════════════════════════
-
-  // ── PBU (Quiroga/ActisCaporale/Marinati) ──
-  // HIRS_pbu = pbuAdmin + PC_con_rem6 + PAP_con_rem6 (usando W con tope pero sin Art26/Art24 aún)
-  let confPBU = null;
-  if(pbuReaj > 0 && pbuA > 0 && (d.badaro_pbu || d.analizar_conf_pbu)){
-    const hirs_pbu = pbuA + pcConRem6 + papConRem6;
-    const merma    = pbuReaj - pbuA;
-    const pct      = hirs_pbu>0 ? Math.round(merma*100/hirs_pbu*100)/100 : 0;
-    confPBU = {merma, hirs:hirs_pbu, pct, ok:pct>15, liberado:pct>15};
+  if(modoPBU === 'isbic'){
+    // Auto-calcular coef ISBIC: sep/1997 → fecha adquisición
+    const coefAuto = coefActualizacion(9, 1997, fadq.m, fadq.y, 'isbic');
+    // Permitir override manual si el usuario puso un valor
+    coefPBU_usado = p(d.coef_pbu) > 0 ? p(d.coef_pbu) : (coefAuto || 0);
+    if(coefPBU_usado > 0){
+      pbuReaj = Math.round(200 * coefPBU_usado * 100) / 100;
+    }
+  } else if(modoPBU === 'ngr'){
+    // NGR requiere coef manual (no tenemos tabla NGR)
+    coefPBU_usado = p(d.coef_pbu);
+    if(coefPBU_usado > 0){
+      pbuReaj = Math.round(200 * coefPBU_usado * 100) / 100;
+    }
   }
-  const pbuFinal = confPBU?.ok ? pbuReaj : pbuA;
+  // else: sin_reajuste → pbuReaj = pbuA (ya seteado)
+
+  // ══════════════════════════════════════════════════════
+  // ANÁLISIS DE CONFISCATORIEDAD PBU (Marinati Sala III CFSS 04/07/2022)
+  // ══════════════════════════════════════════════════════
+  // Fórmula Marinati:
+  //   MC = PBU_reajustada - PBU_caja (Merma Cuantificada)
+  //   HIRS = PBU_caja + PC_reajustada + PAP_reajustada
+  //   % Confiscatoriedad = MC × 100 / HIRS
+  //   Si % > 15% → confiscatorio → se aplica PBU reajustada
+  // ══════════════════════════════════════════════════════
+  let confPBU = null;
+  if(modoPBU !== 'sin_reajuste' && pbuReaj > pbuA && d.analizar_conf_pbu){
+    const mc       = pbuReaj - pbuA;                          // Merma Cuantificada
+    const hirs_pbu = pbuA + pcConRem6 + papConRem6;           // HIRS = PBU caja + PC reaj + PAP reaj
+    const pct      = hirs_pbu > 0 ? Math.round(mc * 100 / hirs_pbu * 100) / 100 : 0;
+    confPBU = {merma: mc, hirs: hirs_pbu, pct, ok: pct > 15, liberado: pct > 15,
+      coefUsado: coefPBU_usado, modoPBU};
+  } else if(modoPBU !== 'sin_reajuste' && pbuReaj > pbuA && !d.analizar_conf_pbu){
+    // Reajuste ordenado sin análisis de confiscatoriedad → aplicar directamente
+    confPBU = {merma: pbuReaj - pbuA, hirs: 0, pct: 0, ok: true, liberado: true,
+      coefUsado: coefPBU_usado, modoPBU, sinAnalisis: true};
+  }
+  const pbuFinal = confPBU?.liberado ? pbuReaj : pbuA;
 
   // ── Art. 9/25 + Art. 14 Res. 6/09 — tope remuneración actualizada ──
   let confRem6 = null;
@@ -1775,20 +1812,28 @@ function renderTopes(r){
   const rows = [];
 
   // PBU
-  if(t.confPBU){
+  const modoPBU = d.actualizacion_pbu || 'sin_reajuste';
+  if(t.confPBU && !t.confPBU.sinAnalisis){
+    const indiceLabel = t.confPBU.modoPBU==='isbic' ? 'ISBIC (Elliff)' : 'NGR';
     rows.push(renderTopeRow({
-      label:'PBU — Reajuste Badaro',
-      norma:'Quiroga CSJN 11/11/2014 · Marinati Sala III 4/7/2022',
-      sin: t.confPBU.hirs ? t.confPBU.hirs : null,
-      con: t.confPBU.hirs - t.confPBU.merma,
+      label:`PBU — Reajuste ${indiceLabel} (Quiroga)`,
+      norma:'Quiroga CSJN 11/11/2014 · Marinati Sala III CFSS 4/7/2022',
+      sin: r.pbuFinal,
+      con: r.pbuA,
       pct: t.confPBU.pct, ok: t.confPBU.ok, liberado: t.confPBU.liberado,
-      nota: t.confPBU.ok
-        ? `Merma $${fmt(t.confPBU.merma)} sobre HIRS $${fmt(t.confPBU.hirs)} → reajuste aplicado`
-        : `Merma $${fmt(t.confPBU.merma)} — PBU sin reajustar`
+      nota: `MC=$${fmt(t.confPBU.merma)} · HIRS=$${fmt(t.confPBU.hirs)} (PBU caja+PC reaj+PAP reaj) · Coef=${t.confPBU.coefUsado?.toFixed(5)||'—'}`
     }));
+  } else if(t.confPBU?.sinAnalisis){
+    rows.push(`<tr class="tope-row-lib"><td><strong>PBU — Reajuste ${t.confPBU.modoPBU==='isbic'?'ISBIC':'NGR'} (Quiroga)</strong><br><small style="color:var(--muted)">Aplicado sin test de confiscatoriedad</small></td>
+      <td class="num">$${fmt(r.pbuFinal)}</td><td class="num">$${fmt(r.pbuA)}</td>
+      <td><span class="tope-badge tope-lib">✓ Reajuste aplicado — coef ${t.confPBU.coefUsado?.toFixed(5)||'—'}</span></td>
+      <td class="num">—</td><td><small style="color:var(--muted)">Sin análisis Marinati (no tildado)</small></td></tr>`);
+  } else if(modoPBU === 'sin_reajuste'){
+    rows.push(`<tr><td><strong>PBU — Sin reajuste</strong><br><small style="color:var(--muted)">Quiroga/Marinati no ordenado</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">PBU de caja sin reajustar</span></td><td></td></tr>`);
   } else {
-    rows.push(`<tr><td><strong>PBU — Reajuste Badaro</strong><br><small style="color:var(--muted)">Quiroga · Marinati</small></td>
-      <td colspan="4"><span class="tope-badge tope-na">Sin datos (ingresá Coef.Act.PBU)</span></td><td></td></tr>`);
+    rows.push(`<tr><td><strong>PBU — Reajuste ${modoPBU==='isbic'?'ISBIC':'NGR'}</strong><br><small style="color:var(--muted)">Quiroga · Marinati</small></td>
+      <td colspan="4"><span class="tope-badge tope-na">${modoPBU==='ngr'?'Ingresá Coef.PBU manual para NGR':'Error calculando coef ISBIC'}</span></td><td></td></tr>`);
   }
 
   // Art. 14 Res. 6/09 / Art. 9/25 — tope remuneración actualizada
@@ -1908,8 +1953,9 @@ function renderResultado(r){
 
   // ALERTAS
   const alerts=[];
-  if(r.conf?.ok) alerts.push({t:'ok',m:`PBU confiscatoria (${r.conf.pct}% > 15%) → SE REAJUSTA con Badaro`});
-  if(r.conf&&!r.conf.ok) alerts.push({t:'warn',m:`PBU quita ${r.conf.pct}% < 15% → NO supera umbral → sin reajuste`});
+  if(r.conf?.sinAnalisis) alerts.push({t:'ok',m:`PBU reajustada por ${r.conf.modoPBU==='isbic'?'ISBIC (Elliff)':'NGR'} — coef ${r.conf.coefUsado?.toFixed(5)||'—'} → PBU $${fmt(r.pbuFinal)} (aplicado sin test Marinati)`});
+  else if(r.conf?.ok) alerts.push({t:'ok',m:`PBU confiscatoria (MC=${fmt(r.conf.merma)} → ${r.conf.pct}% > 15% del HIRS) → SE REAJUSTA (Quiroga/Marinati)`});
+  else if(r.conf&&!r.conf.ok) alerts.push({t:'warn',m:`PBU quita ${r.conf.pct}% ≤ 15% del HIRS → NO supera umbral Marinati → PBU de caja`});
   if(d.ganancias_exento) alerts.push({t:'ok',m:'Ganancias: exento sobre retroactivos (García CSJN 2019)'});
   if(d.makler && d.aportes_autonomos?.length > 0){
     const totalMesesAut = (d.aportes_autonomos||[]).reduce((s,f)=>s+(f.meses||0),0);
@@ -1996,8 +2042,12 @@ function renderResultado(r){
       <td>${estadoCell}</td>
     </tr>`;
   }
-  const confTxt=r.conf?` · Test PBU: ${r.conf.pct}% (${r.conf.ok?'CONFISCATORIO → SE REAJUSTA':'sin reajuste'})`:'';
-  document.getElementById('pane-a2').innerHTML=`
+  const modoPBUlabel = d.actualizacion_pbu==='isbic'?'ISBIC (Elliff)':d.actualizacion_pbu==='ngr'?'NGR':'sin reajuste';
+  const confTxt = r.conf
+    ? r.conf.sinAnalisis
+      ? ` · PBU reajustada por ${modoPBUlabel} (coef ${r.conf.coefUsado?.toFixed(5)||'—'})`
+      : ` · Test PBU Marinati: MC×100/HIRS = ${r.conf.pct}% (${r.conf.ok?'CONFISCATORIO → SE REAJUSTA':'≤15% → PBU de caja'})`
+    : d.actualizacion_pbu==='sin_reajuste' || !d.actualizacion_pbu ? '' : ' · PBU: sin datos para reajuste';  document.getElementById('pane-a2').innerHTML=`
     <div class="liq-wrap">
       <div class="liq-anx-title">ANEXO II — HABER REAJUSTADO</div>
       <div class="liq-indices">Act. remuneraciones: ${d.indice_actualizacion_rem||'ISBIC hasta 02/2009 y Aumentos Generales'} · PBU $${fmt(r.pbuFinal)} + PC $${fmt(r.pcReaj)} + PAP $${fmt(r.papReaj)} = $${fmt(r.haberReajInicial)}${confTxt}</div>
@@ -2066,10 +2116,22 @@ function renderDictamen(r){
   const parrafos=[];
 
   if(r.conf){
-    parrafos.push({l:r.conf.ok?'PBU — Reajuste confiscatorio':'PBU — Sin confiscatoriedad',
-      t:r.conf.ok
-        ?`Respecto al cálculo de la PBU, corresponde señalar que la actora ha utilizado las pautas indicadas oportunamente en autos, quedando acreditado el porcentaje de confiscatoriedad requerido a tal efecto (${r.conf.pct}% > 15%) de acuerdo a la metodología aplicada por la Sala III de la Excma. Cámara Federal de la Seguridad Social en el precedente "Marinati Nilda Ana c/ Anses s/ reajustes varios" (sentencia de fecha 4.7.22).`
-        :`Respecto a la PBU, atento que la quita resultante (${r.conf.pct}%) no supera el umbral de confiscatoriedad del 15% establecido por la CSJN en "Actis Caporale" (Fallos 323:4216), no corresponde el reajuste de la PBU.`});
+    const indiceUsado = r.conf.modoPBU==='isbic'
+      ? 'Salario Básico Industria Manufacturera y Construcción (ISBIC/IPI), conforme el precedente "Elliff, Alberto José" (CSJN, 11/08/2009, Fallos 332:1914)'
+      : 'Nivel General de Remuneraciones';
+    if(r.conf.sinAnalisis){
+      // Reajuste ordenado sin test de confiscatoriedad
+      parrafos.push({l:'PBU — Reajuste ordenado',
+        t:`Respecto al cálculo de la PBU, conforme lo ordenado en la sentencia que se ejecuta y de acuerdo al precedente "Quiroga, Carlos Alberto" (CSJN, 11/11/2014, Fallos 337:1277), corresponde actualizar el valor del MOPRE ($80) vigente desde septiembre de 1997 hasta la fecha de adquisición del derecho, aplicando el índice de ${indiceUsado}, lo que arroja un coeficiente de ${r.conf.coefUsado?.toFixed(5)||'—'} y una PBU reajustada de $${fmt(r.pbuFinal)} (2,5 × $80 × ${r.conf.coefUsado?.toFixed(5)||'—'}).`});
+    } else if(r.conf.ok){
+      // Confiscatorio → se reajusta
+      parrafos.push({l:'PBU — Reajuste confiscatorio (Marinati)',
+        t:`Respecto al cálculo de la PBU, corresponde señalar que se ha procedido a actualizar el MOPRE desde septiembre de 1997 hasta la fecha de adquisición del derecho conforme el índice de ${indiceUsado}, de acuerdo al precedente "Quiroga, Carlos Alberto" (CSJN, 11/11/2014, Fallos 337:1277). A fin de establecer la incidencia porcentual de la merma sobre el total del haber, se utilizó la metodología de la Sala III de la Excma. Cámara Federal de la Seguridad Social in re "Marinati, Nilda Ana c/ ANSeS s/ reajustes varios" (sentencia interlocutoria de fecha 4.7.22): la Merma Cuantificada (MC = PBU reajustada $${fmt(r.pbuFinal)} − PBU de caja $${fmt(r.pbuA)} = $${fmt(r.conf.merma)}), multiplicada por 100 y dividida por el HIRS (PBU caja + PC reajustada + PAP reajustada = $${fmt(r.conf.hirs)}), arroja un porcentaje de confiscatoriedad del ${r.conf.pct}%, que supera el umbral del 15% establecido por la CSJN en "Actis Caporale" (Fallos 323:4216). En consecuencia, corresponde aplicar la PBU reajustada.`});
+    } else {
+      // No confiscatorio
+      parrafos.push({l:'PBU — Sin confiscatoriedad',
+        t:`Respecto a la PBU, se procedió a actualizar el MOPRE conforme el índice de ${indiceUsado}. Aplicando la metodología del precedente "Marinati" (Sala III CFSS, 4.7.22), la Merma Cuantificada ($${fmt(r.conf.merma)}) representa el ${r.conf.pct}% del HIRS ($${fmt(r.conf.hirs)}), porcentaje que no supera el umbral de confiscatoriedad del 15% establecido por la CSJN en "Actis Caporale" (Fallos 323:4216). Por lo tanto, no corresponde el reajuste de la PBU.`});
+    }
   }
 
   if(aAdq>2006) parrafos.push({l:'Movilidad Badaro — Desestimación',
