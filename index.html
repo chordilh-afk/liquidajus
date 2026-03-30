@@ -932,6 +932,8 @@ REGLAS CRÍTICAS:
   [{"per_desde":"MM/AAAA","per_hasta":"MM/AAAA","categoria":"A","meses":237,"importe_actualizado":1728.04}, ...]
   donde importe_actualizado es el valor ya actualizado que figura en la tabla de ANSeS
 - El promedio autónomo (R) se calculará automáticamente como suma(importe×meses)/total_meses — no calcularlo vos
+- coef_pbu: dejar SIEMPRE null — el sistema lo auto-calcula. NO poner el valor del AMPO/MOPRE ($80) ni el "Valor del Ampo" de la resolución. Solo completar si encontrás un coeficiente ISBIC calculado específicamente para la PBU (ej: 11.07)
+- anios_pbu: años totales de servicios con aportes para la PBU (incluye dependencia + autónomos)
 - Si un dato no está en los documentos: null (no inventar)`;
 
     contentDoc.push({type:"text",text:PROMPT_FASE2});
@@ -1568,21 +1570,33 @@ function calcularLiquidacion(d, rems){
   // ══════════════════════════════════════════════════════
   let pbuReaj = pbuA;
   let coefPBU_usado = 0;
+  let coefPBU_auto = 0;
   const modoPBU = d.actualizacion_pbu || 'sin_reajuste';
+  // Bonus por años extra de PBU: art.20 Ley 24.241 — 1% por año > 30, hasta 45
+  const aniosPBU = p(d.anios_pbu) || 30;
+  const bonusPBU = 1 + 0.01 * Math.max(0, Math.min(aniosPBU, 45) - 30);
 
   if(modoPBU === 'isbic'){
     // Auto-calcular coef ISBIC: sep/1997 → fecha adquisición
-    const coefAuto = coefActualizacion(9, 1997, fadq.m, fadq.y, 'isbic');
-    // Permitir override manual si el usuario puso un valor
-    coefPBU_usado = p(d.coef_pbu) > 0 ? p(d.coef_pbu) : (coefAuto || 0);
-    if(coefPBU_usado > 0){
-      pbuReaj = Math.round(200 * coefPBU_usado * 100) / 100;
+    coefPBU_auto = coefActualizacion(9, 1997, fadq.m, fadq.y, 'isbic') || 0;
+    // Override manual: SOLO usar si está en rango razonable (2-50)
+    // Valores como 80 son el MOPRE ($80), NO un coeficiente ISBIC
+    const manualCoef = p(d.coef_pbu);
+    if(manualCoef >= 2 && manualCoef <= 50){
+      coefPBU_usado = manualCoef;
+    } else {
+      coefPBU_usado = coefPBU_auto;
+      if(manualCoef > 0) console.warn(`PBU: coef manual ${manualCoef} descartado (fuera de rango 2-50, ¿valor MOPRE?). Auto-calc: ${coefPBU_auto.toFixed(5)}`);
     }
+    if(coefPBU_usado > 0){
+      pbuReaj = Math.round(200 * coefPBU_usado * bonusPBU * 100) / 100;
+    }
+    console.log(`PBU ISBIC: auto=${coefPBU_auto.toFixed(5)}, usado=${coefPBU_usado.toFixed(5)}, bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a), PBU=$${pbuReaj.toFixed(2)} (base $200×${coefPBU_usado.toFixed(2)}×${bonusPBU.toFixed(2)})`);
   } else if(modoPBU === 'ngr'){
     // NGR requiere coef manual (no tenemos tabla NGR)
     coefPBU_usado = p(d.coef_pbu);
     if(coefPBU_usado > 0){
-      pbuReaj = Math.round(200 * coefPBU_usado * 100) / 100;
+      pbuReaj = Math.round(200 * coefPBU_usado * bonusPBU * 100) / 100;
     }
   }
   // else: sin_reajuste → pbuReaj = pbuA (ya seteado)
@@ -1602,11 +1616,11 @@ function calcularLiquidacion(d, rems){
     const hirs_pbu = pbuA + pcConRem6 + papConRem6;           // HIRS = PBU caja + PC reaj + PAP reaj
     const pct      = hirs_pbu > 0 ? Math.round(mc * 100 / hirs_pbu * 100) / 100 : 0;
     confPBU = {merma: mc, hirs: hirs_pbu, pct, ok: pct > 15, liberado: pct > 15,
-      coefUsado: coefPBU_usado, modoPBU};
+      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto, bonusPBU, aniosPBU, modoPBU};
   } else if(modoPBU !== 'sin_reajuste' && pbuReaj > pbuA && !d.analizar_conf_pbu){
     // Reajuste ordenado sin análisis de confiscatoriedad → aplicar directamente
     confPBU = {merma: pbuReaj - pbuA, hirs: 0, pct: 0, ok: true, liberado: true,
-      coefUsado: coefPBU_usado, modoPBU, sinAnalisis: true};
+      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto, bonusPBU, aniosPBU, modoPBU, sinAnalisis: true};
   }
   const pbuFinal = confPBU?.liberado ? pbuReaj : pbuA;
 
@@ -1821,12 +1835,12 @@ function renderTopes(r){
       sin: r.pbuFinal,
       con: r.pbuA,
       pct: t.confPBU.pct, ok: t.confPBU.ok, liberado: t.confPBU.liberado,
-      nota: `MC=$${fmt(t.confPBU.merma)} · HIRS=$${fmt(t.confPBU.hirs)} (PBU caja+PC reaj+PAP reaj) · Coef=${t.confPBU.coefUsado?.toFixed(5)||'—'}`
+      nota: `MC=$${fmt(t.confPBU.merma)} · HIRS=$${fmt(t.confPBU.hirs)} · Coef=${t.confPBU.coefUsado?.toFixed(5)||'—'}${t.confPBU.bonusPBU>1?' × bonus '+t.confPBU.bonusPBU.toFixed(2)+' ('+t.confPBU.aniosPBU+'a)':''} · $200×${t.confPBU.coefUsado?.toFixed(2)||'?'}${t.confPBU.bonusPBU>1?'×'+t.confPBU.bonusPBU.toFixed(2):''}=$${fmt(r.pbuFinal)}`
     }));
   } else if(t.confPBU?.sinAnalisis){
     rows.push(`<tr class="tope-row-lib"><td><strong>PBU — Reajuste ${t.confPBU.modoPBU==='isbic'?'ISBIC':'NGR'} (Quiroga)</strong><br><small style="color:var(--muted)">Aplicado sin test de confiscatoriedad</small></td>
       <td class="num">$${fmt(r.pbuFinal)}</td><td class="num">$${fmt(r.pbuA)}</td>
-      <td><span class="tope-badge tope-lib">✓ Reajuste aplicado — coef ${t.confPBU.coefUsado?.toFixed(5)||'—'}</span></td>
+      <td><span class="tope-badge tope-lib">✓ Reajuste aplicado — coef ${t.confPBU.coefUsado?.toFixed(5)||'—'}${t.confPBU.bonusPBU>1?' × '+t.confPBU.bonusPBU.toFixed(2):''}</span></td>
       <td class="num">—</td><td><small style="color:var(--muted)">Sin análisis Marinati (no tildado)</small></td></tr>`);
   } else if(modoPBU === 'sin_reajuste'){
     rows.push(`<tr><td><strong>PBU — Sin reajuste</strong><br><small style="color:var(--muted)">Quiroga/Marinati no ordenado</small></td>
