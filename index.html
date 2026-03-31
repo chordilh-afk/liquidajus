@@ -147,7 +147,7 @@ select.field-input{cursor:pointer;}
     <div class="brand-mark">⚖</div>
     <div>
       <div class="brand-name">LiquidaJus</div>
-      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.2</div>
+      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.3</div>
     </div>
   </div>
   <div style="display:flex;gap:8px">
@@ -1559,15 +1559,27 @@ function calcularLiquidacion(d, rems){
   // ══════════════════════════════════════════════════════
   // PBU reajustada (Quiroga CSJN 11/11/2014)
   // ══════════════════════════════════════════════════════
-  // MOPRE = $80 congelado desde sep/1997
-  // PBU original = 2.5 × MOPRE = $200
-  // Reajuste: PBU = $200 × coef_actualización(sep/1997 → fecha_adq)
+  // MOPRE = $80 congelado desde sep/1997. PBU base = 2.5 × $80 = $200.
   //
-  // Modos:
-  //   "isbic" → coef auto-calculado con ISBIC (Elliff/Blanco)
-  //   "ngr"   → coef manual (Nivel General Remuneraciones)
-  //   "sin_reajuste" → PBU de caja sin cambios
+  // METODOLOGÍA CORRECTA (validada con BlueCorp y Jáuregui v4.3):
+  // La PBU NO se actualiza con ISBIC. Usa tres fases:
+  //   1. Sep/1997 – Dic/2001: MOPRE congelado (factor = 1.0)
+  //   2. Ene/2002 – Dic/2006: IS INDEC Salarios Nivel General (Badaro)
+  //   3. Ene/2007 en adelante: Aumentos Generales ANSeS (movilidades)
+  //
+  // Factor IS INDEC calibrado con dos casos:
+  //   Totera (BlueCorp, adq 12/2015): coef 17.25955 / movs(12/06→12/15)=8.102 → 2.1305
+  //   Minerbi (Jáuregui, adq 04/2010): coef 3.594 / movs(12/06→04/10)=1.6866 → 2.1309
+  // Consistente: IS_INDEC_PBU = 2.1305
+  //
+  // Verificación independiente del coef de remuneraciones (ISBIC):
+  //   BlueCorp mayo/2005→dic/2015: coef 16.963331
+  //   Nuestro: (ISBIC_REF/ISBIC[200505]) × movs(02/09→12/15) = 16.965 ✓
+  //   → El motor de actualización de remuneraciones funciona perfecto.
+  //   → El bug era SOLO en la PBU (usaba ISBIC en vez de IS INDEC + movs).
   // ══════════════════════════════════════════════════════
+  const IS_INDEC_PBU = 2.1305; // Factor IS INDEC Nivel General acumulado 2002-2006
+
   let pbuReaj = pbuA;
   let coefPBU_usado = 0;
   let coefPBU_auto = 0;
@@ -1577,21 +1589,24 @@ function calcularLiquidacion(d, rems){
   const bonusPBU = 1 + 0.01 * Math.max(0, Math.min(aniosPBU, 45) - 30);
 
   if(modoPBU === 'isbic'){
-    // Auto-calcular coef ISBIC: sep/1997 → fecha adquisición
-    coefPBU_auto = coefActualizacion(9, 1997, fadq.m, fadq.y, 'isbic') || 0;
-    // Override manual: SOLO usar si está en rango razonable (2-50)
-    // Valores como 80 son el MOPRE ($80), NO un coeficiente ISBIC
+    // Metodología correcta: IS INDEC (2002-2006) × movilidades ANSeS (2007+)
+    // coefPBU = IS_INDEC_PBU × movsAcum(12/2006, fecha_adquisición)
+    const movsPBU = movsAcum(12, 2006, fadq.m, fadq.y);
+    coefPBU_auto = Math.round(IS_INDEC_PBU * movsPBU * 100000) / 100000;
+
+    // Override manual (rango 1.5-100 para PBU)
     const manualCoef = p(d.coef_pbu);
-    if(manualCoef >= 2 && manualCoef <= 50){
+    if(manualCoef >= 1.5 && manualCoef <= 100){
       coefPBU_usado = manualCoef;
     } else {
       coefPBU_usado = coefPBU_auto;
-      if(manualCoef > 0) console.warn(`PBU: coef manual ${manualCoef} descartado (fuera de rango 2-50, ¿valor MOPRE?). Auto-calc: ${coefPBU_auto.toFixed(5)}`);
+      if(manualCoef > 0 && manualCoef < 1.5) console.warn(`PBU: coef manual ${manualCoef} descartado (< 1.5). Auto-calc: ${coefPBU_auto.toFixed(5)}`);
     }
     if(coefPBU_usado > 0){
       pbuReaj = Math.round(200 * coefPBU_usado * bonusPBU * 100) / 100;
     }
-    console.log(`PBU ISBIC: auto=${coefPBU_auto.toFixed(5)}, usado=${coefPBU_usado.toFixed(5)}, bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a), PBU=$${pbuReaj.toFixed(2)} (base $200×${coefPBU_usado.toFixed(2)}×${bonusPBU.toFixed(2)})`);
+
+    console.log(`PBU IS_INDEC: IS_INDEC_PBU=${IS_INDEC_PBU} × movs(12/06→${fmtP(fadq.m,fadq.y)})=${movsPBU.toFixed(5)} = auto ${coefPBU_auto.toFixed(5)} | usado=${coefPBU_usado.toFixed(5)} | bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a) | PBU=$${pbuReaj.toFixed(2)}`);
   } else if(modoPBU === 'ngr'){
     // NGR requiere coef manual (no tenemos tabla NGR)
     coefPBU_usado = p(d.coef_pbu);
@@ -1616,11 +1631,13 @@ function calcularLiquidacion(d, rems){
     const hirs_pbu = pbuA + pcConRem6 + papConRem6;           // HIRS = PBU caja + PC reaj + PAP reaj
     const pct      = hirs_pbu > 0 ? Math.round(mc * 100 / hirs_pbu * 100) / 100 : 0;
     confPBU = {merma: mc, hirs: hirs_pbu, pct, ok: pct > 15, liberado: pct > 15,
-      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto, bonusPBU, aniosPBU, modoPBU};
+      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto,
+      bonusPBU, aniosPBU, modoPBU};
   } else if(modoPBU !== 'sin_reajuste' && pbuReaj > pbuA && !d.analizar_conf_pbu){
     // Reajuste ordenado sin análisis de confiscatoriedad → aplicar directamente
     confPBU = {merma: pbuReaj - pbuA, hirs: 0, pct: 0, ok: true, liberado: true,
-      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto, bonusPBU, aniosPBU, modoPBU, sinAnalisis: true};
+      coefUsado: coefPBU_usado, coefAuto: coefPBU_auto,
+      bonusPBU, aniosPBU, modoPBU, sinAnalisis: true};
   }
   const pbuFinal = confPBU?.liberado ? pbuReaj : pbuA;
 
@@ -1850,6 +1867,15 @@ function renderTopes(r){
       <td colspan="4"><span class="tope-badge tope-na">${modoPBU==='ngr'?'Ingresá Coef.PBU manual para NGR':'Error calculando coef ISBIC'}</span></td><td></td></tr>`);
   }
 
+  // Info PBU methodology
+  if(t.confPBU){
+    rows.push(`<tr style="background:#f0f9ff"><td colspan="6" style="padding:6px;font-size:10px;color:#0c5460;border-left:3px solid #bee5eb">
+      ℹ PBU actualizada con IS INDEC Nivel General (2002-2006) + Movilidades ANSeS (2007+).
+      Coef auto: <strong>${t.confPBU.coefAuto?.toFixed(5)||'—'}</strong> · Usado: ${t.confPBU.coefUsado?.toFixed(5)||'—'}
+      ${t.confPBU.bonusPBU>1?' · Bonus años: ×'+t.confPBU.bonusPBU.toFixed(2)+' ('+t.confPBU.aniosPBU+'a)':''}
+    </td></tr>`);
+  }
+
   // Art. 14 Res. 6/09 / Art. 9/25 — tope remuneración actualizada
   if(t.confRem6){
     rows.push(renderTopeRow({
@@ -1955,7 +1981,7 @@ function renderResultado(r){
     <div class="liq-wrap">
       <div class="liq-hdr">
         <div><div class="liq-title">${d.caratula||'—'}</div><div class="liq-sub">Expte. ${d.expediente||'—'} · Ley ${d.ley_aplicada||'—'} · ${d.regimen||'—'}</div></div>
-        <div class="liq-meta">LiquidaJus v4.2<br>${new Date().toLocaleDateString('es-AR')}</div>
+        <div class="liq-meta">LiquidaJus v4.3<br>${new Date().toLocaleDateString('es-AR')}</div>
       </div>
       <div class="liq-datos">
         <div><div class="ld-label">CUIL</div><div class="ld-value">${d.cuil||'—'}</div></div>
@@ -1979,18 +2005,7 @@ function renderResultado(r){
   }
   if(d.volonte) alerts.push({t:'ok',m:'Volonté: categorías pre-1994 actualizadas por paridad con haber mínimo'});
   const aAdq=parseFecha(d.fecha_adquisicion)?.y||0;
-  // Ley 18.037 — párrafo específico
-  if(d.ley18037_aplica){
-    const anios18 = parseFloat(d.ley18037_anios)||0;
-    const prom18  = parseFloat(d.ley18037_promedio)||0;
-    if(anios18>0 && prom18>0){
-      const añEx = Math.max(0,anios18-30);
-      const pct18 = Math.min(82,70+añEx);
-      parrafos.unshift({l:'Ley 18.037/18.038 — Fórmula de haber',
-        t:`El haber se calcula según la Ley 18.037/18.038 (T.O. 1976): ${pct18}% del promedio de remuneraciones actualizado ($${fmt(prom18)}), con ${anios18} años de servicios con aportes, resultando un haber inicial de $${fmt(Math.round(pct18/100*prom18*100)/100)}.`
-      });
-    }
-  }
+  // Ley 18.037 — párrafo movido a renderDictamen() (BUG FIX v4.3: parrafos no existía aquí)
   if(aAdq>2006) alerts.push({t:'ok',m:'Badaro movilidad NO aplica — beneficio posterior a dic/2006'});
   else if(d.badaro_movilidad) alerts.push({t:'ok',m:`Badaro movilidad aplicada (IS INDEC +88.6% ene/2002–dic/2006, CSJN 26.11.2007)`});
   else if(aAdq<=2006) alerts.push({t:'warn',m:'Verificar si corresponde Badaro movilidad (adquisición ≤ dic/2006) — tildá si la sentencia lo ordenó'});
@@ -2128,6 +2143,19 @@ function renderDictamen(r){
   const d=r.d;
   const aAdq=parseFecha(d.fecha_adquisicion)?.y||0;
   const parrafos=[];
+
+  // Ley 18.037/18.038 — párrafo específico (BUG FIX v4.3: movido desde renderResultado)
+  if(d.ley18037_aplica){
+    const anios18 = parseFloat(d.ley18037_anios)||0;
+    const prom18  = parseFloat(d.ley18037_promedio)||0;
+    if(anios18>0 && prom18>0){
+      const añEx = Math.max(0,anios18-30);
+      const pct18 = Math.min(82,70+añEx);
+      parrafos.push({l:'Ley 18.037/18.038 — Fórmula de haber',
+        t:`El haber se calcula según la Ley 18.037/18.038 (T.O. 1976): ${pct18}% del promedio de remuneraciones actualizado ($${fmt(prom18)}), con ${anios18} años de servicios con aportes, resultando un haber inicial de $${fmt(Math.round(pct18/100*prom18*100)/100)}.`
+      });
+    }
+  }
 
   if(r.conf){
     const indiceUsado = r.conf.modoPBU==='isbic'
