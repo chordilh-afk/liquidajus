@@ -147,7 +147,7 @@ select.field-input{cursor:pointer;}
     <div class="brand-mark">⚖</div>
     <div>
       <div class="brand-name">LiquidaJus</div>
-      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.3</div>
+      <div class="brand-sub">Sistema de Liquidaciones Previsionales · v4.4</div>
     </div>
   </div>
   <div style="display:flex;gap:8px">
@@ -609,6 +609,9 @@ function mesesEntre(m1,a1,m2,a2){
 
 // Movilidad acumulada desde (mDesde, yDesde) EXCLUSIVE hasta (mHasta, yHasta) INCLUSIVE
 function movsAcum(mD,yD,mH,yH){
+  // Defensa: forzar enteros (evita "y*100+m" como concatenación de strings)
+  mD=parseInt(mD); yD=parseInt(yD); mH=parseInt(mH); yH=parseInt(yH);
+  if(!mD||!yD||!mH||!yH) return 1;
   let f=1;
   const ini=yD*100+mD, fin=yH*100+mH;
   for(const mv of MOVS){
@@ -657,6 +660,9 @@ const BADARO_MOVS = [
 // modo 'isbic': Elliff/Blanco — ISBIC hasta feb/2009, luego movilidades (default)
 // modo 'ripte': ANSeS Dec.807/16 — RIPTE abr/1995-jun/2008, empalme con ISBIC fuera
 function coefActualizacion(m,y,mAdq,yAdq,modo){
+  // Defensa: forzar enteros (evita "y*100+m" como concatenación de strings)
+  m=parseInt(m); y=parseInt(y); mAdq=parseInt(mAdq); yAdq=parseInt(yAdq);
+  if(!m||!y||!mAdq||!yAdq) return null;
   if(!modo) modo='isbic';
   const pRem=y*100+m, pAdq=yAdq*100+mAdq;
   const pFeb09=200902, pJun08=200806, pApr95=199504, pJul94=199407;
@@ -804,10 +810,11 @@ CONFISCATORIEDAD Y TOPES:
   → nota: cuando la sentencia ordena "verificar confiscatoriedad" o "analizar el tope",
     marcar el campo analizar correspondiente aunque no declare la inconstitucionalidad
 
-• "Marinati" (Sala III CFSS) / "Quiroga" (CSJN 11/11/2014)
-  → Si ordena actualizar PBU por ISBIC (Elliff): actualizacion_pbu = "isbic"
-  → Si ordena actualizar PBU por Nivel General de Remuneraciones: actualizacion_pbu = "ngr"
+• "Marinati" (Sala III CFSS) / "Quiroga" (CSJN 11/11/2014) / "Badaro" en contexto PBU / "actualizar MOPRE" / "actualizar AMPO"
+  → Si la sentencia ORDENA reajustar la PBU (por cualquier índice): actualizacion_pbu = "isbic"
+    (nuestro modo "isbic" usa la metodología correcta: IS INDEC Nivel General 2002-2006 + Movilidades ANSeS 2007+)
   → Si NO menciona reajuste de PBU: actualizacion_pbu = "sin_reajuste"
+  → NUNCA uses "ngr" — siempre "isbic" cuando corresponde reajuste
   → Si ordena analizar confiscatoriedad de PBU: analizar_conf_pbu = true
 
 • "Pellegrini" / "art. 9 ley 24.463" / "haber máximo inconstitucional"
@@ -1470,27 +1477,57 @@ function calcularLiquidacion(d, rems){
     const modoActLiq = d.modo_actualizacion && d.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
 
     if(remsDep.length>0){
-      let suma=0;
+      let suma=0, sinCoef=0, sinCoefDetalle=[];
       for(const r of remsDep){
-        const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
-        // Convertir moneda histórica a pesos ($) antes de aplicar ISBIC
+        const rm=parseInt(r.m), ry=parseInt(r.y);
+        const coef=coefActualizacion(rm,ry,fadq.m,fadq.y,modoActLiq);
+        if(coef==null){
+          sinCoef++;
+          sinCoefDetalle.push(`${rm}/${ry}`);
+          continue; // NO sumar rems sin coef — evita colapso silencioso del W
+        }
         const importeOriginal = p(r.rem);
-        const importeEnPesos = convertirAPesos(importeOriginal, r.m, r.y);
+        const importeEnPesos = convertirAPesos(importeOriginal, rm, ry);
         // Ley 18.037: el importe es ANUAL → dividir por 12 para obtener mensual
         const importe = es18037 ? importeEnPesos/12 : importeEnPesos;
         suma+=importe*coef;
       }
-      // Ley 18.037: el promedio es sobre los mejores años (hasta 10), ya en meses
-      promDepReaj=Math.round(suma/remsDep.length*100)/100;
+      const validas = remsDep.length - sinCoef;
+      if(sinCoef>0){
+        const pct=(sinCoef/remsDep.length*100).toFixed(0);
+        console.warn(`⚠ ${sinCoef}/${remsDep.length} rems dep. (${pct}%) sin coef: ${sinCoefDetalle.slice(0,10).join(', ')}${sinCoefDetalle.length>10?'...':''}`);
+        if(sinCoef/remsDep.length > 0.10){
+          throw new Error(`No se pudo calcular el promedio dependiente: ${sinCoef} de ${remsDep.length} remuneraciones (${pct}%) están fuera del rango ISBIC o tienen mes/año mal cargados. Verificá los períodos: ${sinCoefDetalle.slice(0,5).join(', ')}${sinCoefDetalle.length>5?'...':''}`);
+        }
+      }
+      if(validas>0){
+        // Dividir por validas, no por remsDep.length, para no diluir el promedio
+        promDepReaj=Math.round(suma/validas*100)/100;
+      }
     }
     if(remsAut.length>0){
-      let suma=0;
+      let suma=0, sinCoef=0, sinCoefDetalle=[];
       for(const r of remsAut){
-        const coef=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActLiq)||1;
-        // Convertir moneda histórica a pesos ($) antes de aplicar ISBIC
-        suma+=convertirAPesos(p(r.rem), r.m, r.y)*coef;
+        const rm=parseInt(r.m), ry=parseInt(r.y);
+        const coef=coefActualizacion(rm,ry,fadq.m,fadq.y,modoActLiq);
+        if(coef==null){
+          sinCoef++;
+          sinCoefDetalle.push(`${rm}/${ry}`);
+          continue;
+        }
+        suma+=convertirAPesos(p(r.rem), rm, ry)*coef;
       }
-      promAutReaj=Math.round(suma/remsAut.length*100)/100;
+      const validas = remsAut.length - sinCoef;
+      if(sinCoef>0){
+        const pct=(sinCoef/remsAut.length*100).toFixed(0);
+        console.warn(`⚠ ${sinCoef}/${remsAut.length} rems aut. (${pct}%) sin coef: ${sinCoefDetalle.slice(0,10).join(', ')}${sinCoefDetalle.length>10?'...':''}`);
+        if(sinCoef/remsAut.length > 0.10){
+          throw new Error(`No se pudo calcular el promedio autónomo: ${sinCoef} de ${remsAut.length} remuneraciones (${pct}%) están fuera del rango ISBIC o tienen mes/año mal cargados. Verificá los períodos: ${sinCoefDetalle.slice(0,5).join(', ')}${sinCoefDetalle.length>5?'...':''}`);
+        }
+      }
+      if(validas>0){
+        promAutReaj=Math.round(suma/validas*100)/100;
+      }
     }
   } else {
     // Sin remuneraciones ingresadas: usar promedios de la resolución como base
@@ -1608,8 +1645,17 @@ function calcularLiquidacion(d, rems){
 
     console.log(`PBU IS_INDEC: IS_INDEC_PBU=${IS_INDEC_PBU} × movs(12/06→${fmtP(fadq.m,fadq.y)})=${movsPBU.toFixed(5)} = auto ${coefPBU_auto.toFixed(5)} | usado=${coefPBU_usado.toFixed(5)} | bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a) | PBU=$${pbuReaj.toFixed(2)}`);
   } else if(modoPBU === 'ngr'){
-    // NGR requiere coef manual (no tenemos tabla NGR)
-    coefPBU_usado = p(d.coef_pbu);
+    // NGR: si hay coef manual usarlo, sino hacer fallback al auto-cálculo IS INDEC
+    const manualCoefNGR = p(d.coef_pbu);
+    if(manualCoefNGR >= 1.5 && manualCoefNGR <= 100){
+      coefPBU_usado = manualCoefNGR;
+    } else {
+      // Fallback: mismo cálculo que modo ISBIC (IS INDEC + movilidades)
+      const movsPBU_ngr = movsAcum(12, 2006, fadq.m, fadq.y);
+      coefPBU_usado = Math.round(IS_INDEC_PBU * movsPBU_ngr * 100000) / 100000;
+      coefPBU_auto = coefPBU_usado;
+      console.log(`PBU NGR sin coef manual → fallback IS INDEC: ${coefPBU_usado.toFixed(5)}`);
+    }
     if(coefPBU_usado > 0){
       pbuReaj = Math.round(200 * coefPBU_usado * bonusPBU * 100) / 100;
     }
@@ -1680,6 +1726,21 @@ function calcularLiquidacion(d, rems){
   if(!pcReaj)  pcReaj  = pcA;
   if(!papReaj) papReaj = papA;
 
+  // ── PISO: el haber reajustado NUNCA puede ser menor al haber de caja ──
+  // Si las remuneraciones cargadas o la fórmula dan un PC/PAP menor al admin,
+  // se usa el admin como piso. Esto garantiza reajustado ≥ caja por definición.
+  let pisoPCAplicado = false, pisoPAPAplicado = false;
+  if(pcReaj < pcA){
+    console.warn(`PISO PC aplicado: calculado $${pcReaj.toFixed(2)} < admin $${pcA.toFixed(2)} → usando admin`);
+    pcReaj = pcA;
+    pisoPCAplicado = true;
+  }
+  if(papReaj < papA){
+    console.warn(`PISO PAP aplicado: calculado $${papReaj.toFixed(2)} < admin $${papA.toFixed(2)} → usando admin`);
+    papReaj = papA;
+    pisoPAPAplicado = true;
+  }
+
   // ── Art. 26 (PC máxima = 0.208 × haber_mínimo × N_años) — automático por período ──
   // Usa HABER_MIN de la tabla histórica a fecha de adquisición
   let confArt26 = null;
@@ -1699,7 +1760,15 @@ function calcularLiquidacion(d, rems){
     if(!lib26){ pcReaj = pcCon26; papReaj = papCon26; }
   }
 
-  const haberReajInicial = pbuFinal + pcReaj + papReaj;
+  let haberReajInicial = pbuFinal + pcReaj + papReaj;
+
+  // ── PISO FINAL: haber reajustado NUNCA puede ser menor al haber de caja ──
+  // Garantía absoluta. Si por cualquier razón (Art.26 tope, confiscatoriedad, etc.)
+  // el haber reajustado quedara por debajo del de caja, se usa el de caja.
+  if(haberReajInicial < haberCajaInicial){
+    console.warn(`PISO HABER aplicado: reajustado $${haberReajInicial.toFixed(2)} < caja $${haberCajaInicial.toFixed(2)} → usando caja`);
+    haberReajInicial = haberCajaInicial;
+  }
 
   // ── Art. 9 Ley 24.463 — Tope sobre haber total reajustado ──
   // El tope opera sobre el haber final (PBU+PC+PAP).
