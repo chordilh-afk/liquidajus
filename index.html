@@ -371,7 +371,7 @@ for(let m=5;m<=12;m++) si(m,1995,226580.2);
 for(let y=1996;y<=2002;y++) for(let m=1;m<=12;m++) si(m,y,226742.3);
 // 2003
 si(1,2003,226742.3);si(2,2003,226742.3);si(3,2003,226742.3);si(4,2003,226742.3);
-si(5,2003,226742.3);si(6,2003,227066.5);si(7,2003,234684.0);si(8,2003,245218.8);
+si(5,2003,226742.3);si(6,2003,226742.3);si(7,2003,234684.0);si(8,2003,245218.8);
 si(9,2003,261750.4);si(10,2003,287196.1);si(11,2003,326580.2);si(12,2003,343922.2);
 // 2004
 si(1,2004,367585.1);si(2,2004,388006.5);si(3,2004,392544.6);si(4,2004,392706.6);
@@ -2929,6 +2929,18 @@ function coefActualizacion(m,y,mAdq,yAdq,modo){
   if(pRem<=pFeb09){
     const isbicRem=ISBIC[pRem];
     if(!isbicRem) return null;
+    // ── BUG FIX v4.6.1 ──
+    // Si la adquisición también es ≤ feb/2009 (jubilados pre-Elliff/Blanco),
+    // el coef es ratio directo ISBIC[adq]/ISBIC[rem]. NO pasar por feb/2009:
+    // hacerlo multiplica ratioISBIC=ISBIC_REF/ISBIC[rem] (≈5.3 para 06/2003)
+    // por movsAcum(02/2009 → adq) que devuelve 1 cuando va hacia atrás,
+    // inflando el coef ~5x. Validado vs BlueCorp Di Dio (adq 06/2003).
+    if(pAdq<=pFeb09){
+      const isbicAdq=ISBIC[pAdq];
+      if(!isbicAdq) return null;
+      return Math.round(isbicAdq/isbicRem*100000)/100000;
+    }
+    // Adquisición post-feb/2009: ISBIC hasta feb/2009, luego movilidades (Elliff/Blanco)
     const ratioISBIC=ISBIC_REF/isbicRem;
     const movDesde=movsAcum(2,2009,mAdq,yAdq);
     return Math.round(ratioISBIC*movDesde*100000)/100000;
