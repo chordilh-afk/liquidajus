@@ -225,7 +225,7 @@ select.field-input{cursor:pointer;}
   <div id="rems-extract-status" style="display:none;font-size:11px;padding:6px 10px;border-radius:4px;margin-bottom:8px"></div>
   <div class="rems-table-wrap">
     <table class="rems-table" id="rems-table">
-      <thead><tr><th>Período</th><th>Rem. Original</th><th>Moneda</th><th>Tipo</th><th>Coef. ISBIC</th><th>Rem. Actualizada ($)</th><th></th></tr></thead>
+      <thead><tr><th>Período</th><th>Rem. Original</th><th>Meses</th><th>Moneda</th><th>Tipo</th><th>Coef. ISBIC</th><th>Rem. Actualizada ($)</th><th></th></tr></thead>
       <tbody id="rems-body"></tbody>
     </table>
   </div>
@@ -3494,17 +3494,21 @@ function renderRemsTable(){
   let html='';
   for(let i=0;i<S.rems.length;i++){
     const r=S.rems[i];
+    const meses = parseInt(r.meses)||1;
     let coef='', remAct='', remEnPesos='';
     if(fadq && r.rem){
       const modoActT = S.datos.modo_actualizacion && S.datos.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
       const c=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActT);
-      // Convertir a pesos ($) antes de aplicar ISBIC
-      const importeEnPesos = convertirAPesos(p(r.rem), r.m, r.y);
+      // Si meses>1, el importe es ANUAL → mostrar el equivalente mensual actualizado
+      // (que es lo que efectivamente entra al promedio tras expandirRems).
+      const importeOriginal = p(r.rem);
+      const importeMensualOrig = meses>1 ? importeOriginal/meses : importeOriginal;
+      const importeEnPesos = convertirAPesos(importeMensualOrig, r.m, r.y);
       const fc = factorConversion(r.m, r.y);
       if(fc > 1) remEnPesos = importeEnPesos.toExponential(4);
       if(c){
         coef=c.toFixed(4);
-        remAct=fmt(Math.round(importeEnPesos*c*100)/100);
+        remAct=fmt(Math.round(importeEnPesos*c*100)/100) + (meses>1?' <span style="font-size:9px;color:var(--muted)">/mes</span>':'');
       } else {
         coef='Sin datos ISBIC';
       }
@@ -3523,6 +3527,7 @@ function renderRemsTable(){
     html+=`<tr style="${bgMoneda?'background:'+bgMoneda:''}">
       <td><input value="${fmtP(r.m,r.y)}" onchange="S.rems[${i}].m=parseInt(this.value.split('/')[0]);S.rems[${i}].y=parseInt(this.value.split('/')[1]);recalcCoefs()" style="width:70px"></td>
       <td><input value="${r.rem}" onchange="S.rems[${i}].rem=this.value;recalcCoefs()" placeholder="0.00" style="width:100px"></td>
+      <td><input type="number" min="1" max="12" value="${meses}" onchange="S.rems[${i}].meses=parseInt(this.value)||1;recalcCoefs()" style="width:42px;text-align:center" title="Cantidad de meses que cubre el importe (1=mensual, 12=anual completo, 9=anual parcial)"></td>
       <td style="font-size:10px;font-weight:600;color:${monedaColor}">${monedaDisplay}${remEnPesos?'<br><span style="font-size:8px;color:var(--muted);font-weight:400">≈$'+remEnPesos+'</span>':''}</td>
       <td><select onchange="S.rems[${i}].tipo=this.value" style="font-size:10px;border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:var(--bg)">
         <option value="dep" ${tipo==='dep'?'selected':''}>Dep.</option>
@@ -3536,7 +3541,8 @@ function renderRemsTable(){
   document.getElementById('rems-body').innerHTML=html;
 
   const total=S.rems.filter(r=>r.rem).length;
-  document.getElementById('rem-info').textContent=total>0?`${total} remuneraciones ingresadas`:'';
+  const totalMeses=S.rems.filter(r=>r.rem).reduce((a,r)=>a+(parseInt(r.meses)||1),0);
+  document.getElementById('rem-info').textContent=total>0?`${total} fila${total!==1?'s':''} · ${totalMeses} meses efectivos`:'';
 }
 
 function recalcCoefs(){ renderRemsTable(); }
@@ -3574,23 +3580,40 @@ async function extraerRemuneraciones(){
 Devolvé ÚNICAMENTE un JSON válido con este formato (sin texto adicional, sin markdown):
 {
   "remuneraciones": [
-    {"mes": 5, "anio": 2004, "importe": 1234.56},
-    {"mes": 6, "anio": 2004, "importe": 0}
+    {"mes": 12, "anio": 1992, "importe": 4114.00, "meses": 12},
+    {"mes": 9, "anio": 1994, "importe": 4872.82, "meses": 9},
+    {"mes": 5, "anio": 2004, "importe": 1234.56, "meses": 1}
   ],
-  "total_meses": 124,
-  "suma_total_original": 191893.00,
+  "formato": "anual",
+  "total_meses": 129,
+  "suma_total_original": 60886.94,
   "notas": ""
 }
 
 REGLAS:
-- Extraé TODAS las remuneraciones del "DETALLE DE REMUNERACIONES" (sección con tabla año/fecha/importe)
-- Usá el IMPORTE ORIGINAL (no el actualizado). En la tabla hay columnas "IMPORTE ORIGINAL" e "IMPORTE ACTUALIZ." — tomá la original
-- Si un mes tiene dos filas (por ejemplo dos empleadores distintos en el mismo mes), SUMÁ los importes
-- mes: número entero 1-12. anio: número entero (ej. 2004)
-- importe: número decimal, 0 si el mes está vacío o sin remuneración
-- Incluí SOLO los meses que aparecen en la tabla — no agregues meses que no estén
-- Si hay períodos sin remuneración entre filas, no los infergas — solo lo que está explícito
-- Usá punto como separador decimal (no coma)`;
+- Buscá la sección "DETALLE DE REMUNERACIONES" (tabla con año/fecha/importe).
+- DOS FORMATOS POSIBLES — detectá cuál es y respetalo:
+
+  FORMATO ANUAL (típico de ANSeS, ej. Di Dio):
+    Tiene columnas tipo "ANIO | FECHA DESDE | FECHA HASTA | CANT.MESES | IMPORTE ORIGINAL"
+    cada fila representa UN AÑO con un total anual y la cantidad de meses trabajados.
+    → devolvé una fila por año con:
+       mes  = el mes de "FECHA HASTA" (ej. fecha hasta 30/09/1994 → mes=9)
+       anio = el año
+       importe = el IMPORTE ORIGINAL ANUAL completo (NO dividir vos)
+       meses  = el valor de la columna CANT.MESES (ej. 12, 9, 6...)
+    → "formato": "anual"
+
+  FORMATO MENSUAL:
+    Tabla con una fila por mes individual.
+    → devolvé una fila por mes con meses=1.
+    → "formato": "mensual"
+
+- Usá SIEMPRE el IMPORTE ORIGINAL (no el actualizado). Hay columnas "IMPORTE ORIGINAL" e "IMPORTE ACTUALIZ." — tomá la original.
+- Si en formato mensual un mes tiene dos filas (dos empleadores), SUMÁ los importes.
+- mes: entero 1-12. anio: entero (ej. 2004). importe: decimal con punto. meses: entero ≥1.
+- Incluí SOLO los períodos que aparecen en la tabla — no inventes.
+- Usá punto como separador decimal (no coma).`;
 
     // Llamado con retry automático para rate limit 429
     let resp, intentos = 0;
@@ -3655,14 +3678,17 @@ REGLAS:
     if(!rems.length) throw new Error('No se encontraron remuneraciones en el documento.');
 
     // Cargar en S.rems — conservar tipo 'dep' por defecto (dependiente)
-    // Los autónomos se pueden marcar manualmente si es mixto
+    // Los autónomos se pueden marcar manualmente si es mixto.
+    // Si formato="anual", cada fila trae meses=N (12, 9, etc.) y la expansión
+    // a mensuales sintéticas la hace expandirRems() en calcularLiquidacion.
     S.rems = rems
       .filter(r => r.mes && r.anio)
       .map(r => ({
         m: parseInt(r.mes),
         y: parseInt(r.anio),
         rem: r.importe > 0 ? String(r.importe) : '',
-        tipo: 'dep'
+        tipo: 'dep',
+        meses: parseInt(r.meses)||1
       }))
       .sort((a,b) => a.y*100+a.m - (b.y*100+b.m));
 
@@ -3695,9 +3721,53 @@ REGLAS:
 
 
 // ═══════════════════════════════════════════════════════
+// EXPANSIÓN DE REMUNERACIONES ANUALES → MENSUALES
+// ═══════════════════════════════════════════════════════
+// Las resoluciones de ANSeS suelen listar el "DETALLE DE REMUNERACIONES"
+// como totales anuales con una columna "CANT.MESES" (ej. Di Dio: 1994 con
+// $4.872,82 / 9 meses). BlueCorp desagrega: importe_mensual = anual/meses,
+// y aplica ISBIC mes-a-mes a cada uno de los N meses (los coeficientes
+// ISBIC varían intra-año, especialmente en 1992-93).
+//
+// Esta función expande cada fila con meses>1 en N filas mensuales sintéticas
+// distribuidas hacia atrás desde (r.m, r.y) inclusive. Ejemplo:
+//   {m:12, y:1992, rem:"4114", meses:12}
+//   → 12 filas: 01/1992..12/1992 con rem="342.8333" cada una.
+//   {m:9, y:1994, rem:"4872.82", meses:9}
+//   → 9 filas: 01/1994..09/1994 con rem="541.4244" cada una.
+//
+// Filas con meses=1, sin meses, o con rem vacío pasan tal cual (back-compat).
+function expandirRems(rems){
+  if(!rems || !rems.length) return rems||[];
+  const out=[];
+  for(const r of rems){
+    const meses = parseInt(r.meses)||1;
+    if(meses<=1){ out.push(r); continue; }
+    const importeAnual = p(r.rem);
+    if(!importeAnual){ out.push(r); continue; }
+    const mensual = importeAnual/meses;
+    const mensualStr = String(mensual);
+    // Distribuir N meses hacia atrás desde (r.m, r.y) inclusive
+    let mm=parseInt(r.m), yy=parseInt(r.y);
+    const buf=[];
+    for(let k=0;k<meses;k++){
+      buf.push({m:mm, y:yy, rem:mensualStr, tipo:r.tipo||'dep', meses:1});
+      mm--; if(mm<1){mm=12;yy--;}
+    }
+    buf.reverse();
+    for(const x of buf) out.push(x);
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════
 // MOTOR DE CÁLCULO
 // ═══════════════════════════════════════════════════════
 function calcularLiquidacion(d, rems){
+  // Expandir filas anuales (meses>1) → mensuales sintéticas con importe/meses.
+  // Back-compat: filas sin "meses" o con meses=1 pasan tal cual.
+  // No toca el motor de intereses (que ni ve rems).
+  rems = expandirRems(rems);
   const fadq=parseFecha(d.fecha_adquisicion)||{m:1,y:2007};
   const fcierre=parseFecha(d.fecha_cierre)||{m:new Date().getMonth()+1,y:new Date().getFullYear()};
   const fretro=parseFecha(d.fecha_inicio_retro)||fadq;
