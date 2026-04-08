@@ -3354,6 +3354,10 @@ const CAMPOS=[
   {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre)',t:'chk'},
   {k:'makler',l:'Makler — computar todos los períodos autónomos',t:'chk'},
   {k:'volonte',l:'Volonté — actualizar categorías autónomas pre-1994',t:'chk'},
+  {sec:'PAGO PARCIAL — Si la accionada ya pagó retroactivo y reajustó el haber'},
+  {k:'pago_fecha',l:'Fecha del pago / mes que reajustó (MM/AAAA)',t:'text'},
+  {k:'pago_retro_monto',l:'Monto retroactivo abonado ($)',t:'number'},
+  {k:'pago_nuevo_haber',l:'Nuevo haber percibido al mes del pago ($)',t:'number'},
   {sec:'NOTAS'},
   {k:'notas_sentencia',l:'⚠ Observaciones sentencia (IA)',t:'text',c:true},
   {k:'citas_no_reconocidas',l:'⚠ Citas no reconocidas — VERIFICAR',t:'text',c:true},
@@ -3768,6 +3772,22 @@ function calcularLiquidacion(d, rems){
   // Back-compat: filas sin "meses" o con meses=1 pasan tal cual.
   // No toca el motor de intereses (que ni ve rems).
   rems = expandirRems(rems);
+
+  // ── Art. 24 Ley 24.241 — promedio sobre los 120 meses más recientes ──
+  // BlueCorp: si el aportante tiene >120 meses cargados, descarta los más
+  // antiguos. Ej. Di Dio (129 meses, cese 12/2002): de 1992 toma solo
+  // oct/nov/dic (los 3 más recientes) para llegar a 120, descartando ene-sep.
+  // Sum/120 = 507,39 en lugar de Sum/129. No aplica a Ley 18.037/18.038
+  // (que tiene su propio promedio precalculado vía ley18037_promedio).
+  if(d.ley_aplicada !== '18037' && d.ley_aplicada !== '18038' && rems && rems.length > 0){
+    const ord = (a,b) => (b.y*100+b.m) - (a.y*100+a.m); // desc por fecha
+    const dep = rems.filter(r => r.tipo !== 'aut' && r.rem && p(r.rem) > 0).sort(ord);
+    const aut = rems.filter(r => r.tipo === 'aut' && r.rem && p(r.rem) > 0).sort(ord);
+    const otros = rems.filter(r => !r.rem || p(r.rem) <= 0); // ceros — no afectan promedio
+    if(dep.length > 120) console.log(`Art. 24: trim dep ${dep.length}→120 (más recientes)`);
+    if(aut.length > 120) console.log(`Art. 24: trim aut ${aut.length}→120 (más recientes)`);
+    rems = [...dep.slice(0, 120), ...aut.slice(0, 120), ...otros];
+  }
   const fadq=parseFecha(d.fecha_adquisicion)||{m:1,y:2007};
   const fcierre=parseFecha(d.fecha_cierre)||{m:new Date().getMonth()+1,y:new Date().getFullYear()};
   const fretro=parseFecha(d.fecha_inicio_retro)||fadq;
@@ -4122,16 +4142,50 @@ function calcularLiquidacion(d, rems){
     }
   }
 
+  // ── PAGO PARCIAL — Imputación a intereses primero, luego capital ──
+  // Si la accionada ya efectuó un pago parcial y reajustó el haber, desde
+  // ese mes el percibido toma el nuevo haber + movilidades subsiguientes,
+  // y el pago se imputa al saldo total del momento (interés primero, luego
+  // capital — arts. 870, 900 y 903 CCC). El capital remanente sigue
+  // devengando intereses desde la fecha del pago hasta el cierre.
+  // Validado contra BlueCorp caso Di Dio (pago 01/05/2021 $499.851,12).
+  const fpago = parseFecha(d.pago_fecha);
+  const pagoMonto = p(d.pago_retro_monto) || 0;
+  const pagoNuevoHaber = p(d.pago_nuevo_haber) || 0;
+  const tienePago = !!(fpago && pagoMonto > 0 && pagoNuevoHaber > 0);
+
   // ── ANEXO 1: Caja mes a mes ──
   const usarBadaro = !!(d.badaro_movilidad && fadq.y <= 2006);
   const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
+
+  // Override del percibido desde el mes del pago: nuevo haber + movilidades subsiguientes.
+  // Cada fila ya viene con su `factor` de movilidad pre-calculado por aplicarMovilidadMesAMes,
+  // así que basta propagar haber[i] = haber[i-1] * factor[i] desde idxPago.
+  if(tienePago){
+    const pPago = fpago.y*100 + fpago.m;
+    const idxPago = anx1.findIndex(r => r.y*100 + r.m === pPago);
+    if(idxPago >= 0){
+      anx1[idxPago] = {...anx1[idxPago], haber: pagoNuevoHaber};
+      for(let i = idxPago + 1; i < anx1.length; i++){
+        const factor = anx1[i].factor || 1;
+        anx1[i] = {...anx1[i], haber: Math.round(anx1[i-1].haber * factor * 100) / 100};
+      }
+    } else {
+      console.warn(`Pago parcial: mes ${d.pago_fecha} fuera del rango de anx1 — pago ignorado`);
+    }
+  }
 
   // ── ANEXO 2: Reajustado mes a mes ──
   const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
 
   // ── ANEXO 3: Retroactivo ──
+  // Sin pago: todo se acumula en post (capitalPre/intPre quedan en 0).
+  // Con pago: las filas hasta (e inclusive) el mes del pago acumulan en pre,
+  // las posteriores en post. La fila del mes del pago da int=0 porque
+  // calcularIntereses devuelve 0 cuando mDev>=mCierre (la dif devenga al
+  // 1° del mes siguiente, que es post-pago).
   const anx3=[];
-  let totalCapital=0, totalInt=0;
+  let capitalPre=0, intPre=0, capitalPost=0, intPost=0;
 
   for(const row2 of anx2){
     const pRow=row2.y*100+row2.m;
@@ -4147,13 +4201,60 @@ function calcularLiquidacion(d, rems){
     const sac=(d.villanustre_sac&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
     const subtotal=difNeta+sac;
 
-    // Intereses: fórmula oficial BCRA Com. 14290 (o activa BNA si corresponde)
-    const intereses = calcularIntereses(subtotal, row2.m, row2.y, fcierre.m, fcierre.y, d.tasa_interes);
+    // Modo de interés según pre/post pago
+    let mInt = fcierre.m, yInt = fcierre.y, esPrePago = false;
+    if(tienePago && pRow <= fpago.y*100 + fpago.m){
+      mInt = fpago.m; yInt = fpago.y; esPrePago = true;
+    }
+    const intereses = calcularIntereses(subtotal, row2.m, row2.y, mInt, yInt, d.tasa_interes);
 
-    totalCapital+=subtotal;
-    totalInt+=intereses;
+    if(esPrePago){ capitalPre += subtotal; intPre += intereses; }
+    else         { capitalPost += subtotal; intPost += intereses; }
 
-    anx3.push({...row2,percibido,reajustado,dif,descOS,difNeta,sac,intereses,total:subtotal+intereses});
+    anx3.push({...row2,percibido,reajustado,dif,descOS,difNeta,sac,intereses,subtotal,total:subtotal+intereses,esPrePago});
+  }
+
+  // ── Aplicar pago e interés residual sobre capital remanente ──
+  let totalCapital, totalInt;
+  let pagoInfo = null;
+
+  if(tienePago){
+    const totalPre = Math.round((capitalPre + intPre) * 100) / 100;
+    let pagoRest = pagoMonto;
+    const intCubierto = Math.min(intPre, pagoRest);
+    pagoRest = Math.round((pagoRest - intCubierto) * 100) / 100;
+    const capCubierto = Math.min(capitalPre, pagoRest);
+    pagoRest = Math.round((pagoRest - capCubierto) * 100) / 100;
+    const capitalRemanente = Math.round((capitalPre - capCubierto) * 100) / 100;
+    const intRemanente = Math.round((intPre - intCubierto) * 100) / 100;
+
+    // Capital remanente sigue devengando interés desde fecha del pago hasta cierre.
+    // Pago al 1° de fpago.m → T0 = fin del mes anterior.
+    let mResD = fpago.m - 1, yResD = fpago.y;
+    if(mResD < 1){ mResD = 12; yResD--; }
+    const intResidual = capitalRemanente > 0
+      ? calcularIntereses(capitalRemanente, mResD, yResD, fcierre.m, fcierre.y, d.tasa_interes)
+      : 0;
+
+    totalCapital = Math.round((capitalRemanente + capitalPost) * 100) / 100;
+    totalInt     = Math.round((intRemanente + intResidual + intPost) * 100) / 100;
+
+    pagoInfo = {
+      fecha: d.pago_fecha, monto: pagoMonto, nuevoHaber: pagoNuevoHaber,
+      capitalPre: Math.round(capitalPre*100)/100,
+      intPre: Math.round(intPre*100)/100,
+      totalPre,
+      intCubierto: Math.round(intCubierto*100)/100,
+      capCubierto: Math.round(capCubierto*100)/100,
+      sobrante: pagoRest,
+      capitalRemanente, intRemanente, intResidual,
+      capitalPost: Math.round(capitalPost*100)/100,
+      intPost: Math.round(intPost*100)/100,
+      saldoFinalCapital: totalCapital, saldoFinalInt: totalInt
+    };
+  } else {
+    totalCapital = capitalPre + capitalPost; // capitalPre = 0 sin pago
+    totalInt     = intPre + intPost;          // intPre = 0 sin pago
   }
 
   const haberCierre=anx2[anx2.length-1]?.haber||haberReajInicial;
@@ -4163,6 +4264,7 @@ function calcularLiquidacion(d, rems){
     totalCapital:Math.round(totalCapital*100)/100,
     totalInt:Math.round(totalInt*100)/100,
     totalRetro:Math.round((totalCapital+totalInt)*100)/100,
+    pagoInfo,
     fadq,fcierre,fretro};
 }
 
@@ -4566,6 +4668,19 @@ function renderResultado(r){
         <div><div class="lr-label">Retroactividad total</div><div class="lr-value ${r.totalRetro<0?'style="color:#ffcccc"':''}">$${fmt(r.totalRetro)}</div></div>
         <div><div class="lr-label">Período</div><div class="lr-value w">${d.fecha_inicio_retro||'—'} → ${fmtP(r.fcierre.m,r.fcierre.y)}</div></div>
       </div>
+      ${r.pagoInfo ? `
+      <div style="margin:14px 0 0;padding:14px 18px;background:#fff8e7;border-left:3px solid #d4a574;border-radius:4px">
+        <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--ink2);margin-bottom:10px">💰 Pago parcial aplicado — ${r.pagoInfo.fecha}</div>
+        <table style="font-size:11px;width:100%;border-collapse:collapse">
+          <tr><td style="padding:3px 0">Total adeudado a ${r.pagoInfo.fecha}</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.totalPre)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Cap $${fmt(r.pagoInfo.capitalPre)} + Int $${fmt(r.pagoInfo.intPre)}</td></tr>
+          <tr><td style="padding:3px 0">Pago efectuado</td><td style="text-align:right;color:#1a5c3a;font-family:'Source Code Pro',monospace">−$${fmt(r.pagoInfo.monto)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Imputación: $${fmt(r.pagoInfo.intCubierto)} a interés · $${fmt(r.pagoInfo.capCubierto)} a capital${r.pagoInfo.sobrante>0?' · sobrante $'+fmt(r.pagoInfo.sobrante):''}</td></tr>
+          <tr style="border-top:1px solid #d4a574"><td style="padding:6px 0"><strong>Saldo capital al ${r.pagoInfo.fecha}</strong></td><td style="text-align:right;font-family:'Source Code Pro',monospace;padding:6px 0"><strong>$${fmt(r.pagoInfo.capitalRemanente)}</strong></td><td></td></tr>
+          <tr><td style="padding:3px 0">Interés residual sobre saldo (a ${fmtP(r.fcierre.m,r.fcierre.y)})</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.intResidual)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Sobre $${fmt(r.pagoInfo.capitalRemanente)} desde el pago</td></tr>
+          <tr><td style="padding:3px 0">Nuevas diferencias post-pago</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.capitalPost)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">+ Int $${fmt(r.pagoInfo.intPost)}</td></tr>
+          <tr style="border-top:2px solid #b8915d"><td style="padding:6px 0"><strong>Saldo final al ${fmtP(r.fcierre.m,r.fcierre.y)}</strong></td><td style="text-align:right;font-family:'Source Code Pro',monospace;padding:6px 0;font-size:13px"><strong>$${fmt(r.pagoInfo.saldoFinalCapital + r.pagoInfo.saldoFinalInt)}</strong></td><td style="font-size:10px;color:var(--muted);padding-left:14px">Cap $${fmt(r.pagoInfo.saldoFinalCapital)} + Int $${fmt(r.pagoInfo.saldoFinalInt)}</td></tr>
+        </table>
+        <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">Imputación conforme arts. 870, 900 y 903 CCC (interés primero, luego capital). El nuevo percibido ($${fmt(r.pagoInfo.nuevoHaber)}) se aplica desde ${r.pagoInfo.fecha} con las movilidades subsiguientes.</div>
+      </div>` : ''}
       ${r.totalRetro<0 ? `<div class="alert warn" style="margin:0;border-radius:0 0 6px 6px;background:#8b1a1a;color:white;border:none">
         ✗ <strong>BUG 4/5 DETECTADO — Retroactivo negativo ($${fmt(r.totalRetro)})</strong><br>
         El haber reajustado es menor al haber de caja, lo que es imposible en un expediente de reajuste.
