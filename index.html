@@ -534,6 +534,14 @@ const ISBIC_REF = 1213938.4; // feb/2009 — punto de referencia Elliff/Blanco
 // MOVILIDADES LEY 26.417 y sucesoras
 // ═══════════════════════════════════════════════════════
 const MOVS = [
+  // ── Aumentos pre-Ley 26.417 (jul/2003 a feb/2009) ──
+  // Validados contra Anexo I de BlueCorp caso Di Dio (alta 06/2003).
+  // Los Dec. 391/03, 1194/03 y 683/04 NO se incluyen: son cambios al
+  // descuento de obra social, no aumentos del haber bruto.
+  {m:9,y:2004,f:1.1000,n:"Dec. 1199/04"},
+  {m:6,y:2006,f:1.1100,n:"Dec. 764/2006"},
+  {m:1,y:2007,f:1.1300,n:"Ley 26198"},
+  {m:7,y:2007,f:1.0683,n:"Ley 26222"},
   {m:9,y:2007,f:1.1250,n:"Dec. 1346/2007"},{m:3,y:2008,f:1.0750,n:"Dec. 279/2008"},
   {m:7,y:2008,f:1.0750,n:"Dec. 279/2008"},{m:3,y:2009,f:1.1169,n:"Ley 26417 - Res. 135/09"},
   {m:9,y:2009,f:1.0734,n:"Res. 65/09"},{m:3,y:2010,f:1.0821,n:"Res. 130/10"},
@@ -548,7 +556,7 @@ const MOVS = [
   {m:6,y:2018,f:1.0569,n:"Cir. 32/18"},{m:9,y:2018,f:1.0668,n:"Res. 125/18"},
   {m:12,y:2018,f:1.0778,n:"Res. 2/18 SSS"},{m:3,y:2019,f:1.1183,n:"Res. 4/19"},
   {m:6,y:2019,f:1.1074,n:"Res. 8/19"},{m:9,y:2019,f:1.1222,n:"Res. 12/2019"},
-  {m:12,y:2019,f:1.0874,n:"Cir. 65/2019"},{m:3,y:2020,f:1.0230,n:"Dec. 163/2020"},
+  {m:12,y:2019,f:1.0874,n:"Cir. 65/2019"},{m:3,y:2020,f:1.0230,b:1500,n:"Dec. 163/2020 (+$1500 suma fija)"},
   {m:6,y:2020,f:1.0612,n:"Dec. 495/2020"},{m:9,y:2020,f:1.0750,n:"Dec. 692/2020"},
   {m:12,y:2020,f:1.0500,n:"Dec. 899/2020"},{m:3,y:2021,f:1.0807,n:"Res. 48/2021"},
   {m:6,y:2021,f:1.1212,n:"Res. 105/21"},{m:9,y:2021,f:1.1239,n:"Res. 171/2021"},
@@ -2862,17 +2870,59 @@ function movsAcum(mD,yD,mH,yH){
   return f;
 }
 
-// Aplicar movilidad mes a mes sobre haber — retorna array
-function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro){
+// ══════════════════════════════════════════════════════
+// MOVILIDAD DEL HABER REAJUSTADO PRE-LEY 26.417
+// ══════════════════════════════════════════════════════
+// Para el período 06/2003–02/2009, la cadena de movilidad del HABER
+// REAJUSTADO difiere de la cadena del HABER DE CAJA porque ANSeS aplicó
+// los decretos pre-2009 con "sumas fijas" sobre el haber al pago, mientras
+// que la sentencia de reajuste ordena aplicarlos como porcentaje pleno
+// sobre el haber puro. BlueCorp tiene dos cadenas distintas por esto mismo.
+//
+// Los saltos ocurren en DIC de cada año (y 07/2007), no en los meses de
+// los decretos al pago (9/2004, 6/2006, etc.). Factores back-calculados
+// y validados contra BlueCorp caso Di Dio (alta 06/2003):
+//   factor acumulado 06/2003 → 07/2008 = 2.6984 (BC) vs 2.6985 (nuestra) → drift 0.003%
+//
+// Desde Ley 26.417 (03/2009) en adelante, caja y reaj usan los MISMOS
+// factores de MOVS — esta tabla queda vacía a partir de allí.
+const MOVS_REAJ_PRE2009 = [
+  {m:12,y:2003,f:1.1207,n:"Dec. 1194/03 — art. 2 (sobre puro reaj)"},
+  {m:12,y:2004,f:1.0933,n:"Dec. 1199/04 — art. 4° (sobre puro reaj)"},
+  {m:12,y:2005,f:1.2032,n:"Aumentos 2005 acumulados (sobre puro reaj)"},
+  {m:12,y:2006,f:1.1889,n:"Aumentos 2006 acumulados (sobre puro reaj)"},
+  {m:1, y:2007,f:1.1300,n:"Ley 26198"},
+  {m:7, y:2007,f:1.0480,n:"Ley 26222 (sobre puro reaj)"},
+  {m:9, y:2007,f:1.1250,n:"Dec. 1346/2007"},
+  {m:3, y:2008,f:1.0750,n:"Dec. 279/2008"},
+  {m:7, y:2008,f:1.0750,n:"Dec. 279/2008"},
+  // 03/2009 en adelante: MOVS comunes (cadena unificada Ley 26.417)
+];
+
+// Aplicar movilidad mes a mes sobre haber — retorna array.
+// esReajustado=true: usa la cadena del haber REAJUSTADO para períodos
+// pre-Ley 26.417 (06/2003–02/2009); desde 03/2009 usa MOVS común.
+// esReajustado=false (default): usa MOVS común = cadena del haber de CAJA.
+function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro, esReajustado){
   const res=[];
   let h=haberInicial, m=mIni, y=yIni;
   while(y*100+m <= yFin*100+mFin){
-    // Movilidad normal (MOVS)
-    const mv=MOVS.find(x=>x.m===m&&x.y===y);
+    const p=y*100+m;
+    // Seleccionar tabla según reaj/caja y período (<02/2009 diverge, >=03/2009 igual)
+    let mv;
+    if(esReajustado && p<=200902){
+      mv=MOVS_REAJ_PRE2009.find(x=>x.m===m&&x.y===y);
+    } else {
+      mv=MOVS.find(x=>x.m===m&&x.y===y);
+    }
     // Movilidad Badaro (IS INDEC 2002-2006) — solo si usarBadaro=true y año en rango
     const bv=usarBadaro ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
     if(bv) h=Math.round(h*bv.factor*100)/100;
-    if(mv) h=Math.round(h*mv.f*100)/100;
+    if(mv){
+      h=Math.round(h*mv.f*100)/100;
+      // Suma fija post-factor (bonos de haber mínimo en algunos decretos)
+      if(mv.b) h=Math.round((h+mv.b)*100)/100;
+    }
     res.push({m,y,haber:h,
       factor:bv?bv.factor:(mv?mv.f:null),
       norma:bv?bv.norma:(mv?mv.n:null)});
@@ -4166,9 +4216,9 @@ function calcularLiquidacion(d, rems){
   const pagoNuevoHaber = p(d.pago_nuevo_haber) || 0;
   const tienePago = !!(fpago && pagoMonto > 0 && pagoNuevoHaber > 0);
 
-  // ── ANEXO 1: Caja mes a mes ──
+  // ── ANEXO 1: Caja mes a mes (cadena de movilidad del haber AL PAGO) ──
   const usarBadaro = !!(d.badaro_movilidad && fadq.y <= 2006);
-  const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
+  const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro,false);
 
   // Override del percibido desde el mes del pago: nuevo haber + movilidades subsiguientes.
   // Cada fila ya viene con su `factor` de movilidad pre-calculado por aplicarMovilidadMesAMes,
@@ -4187,8 +4237,8 @@ function calcularLiquidacion(d, rems){
     }
   }
 
-  // ── ANEXO 2: Reajustado mes a mes ──
-  const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
+  // ── ANEXO 2: Reajustado mes a mes (cadena de movilidad del haber PURO) ──
+  const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro,true);
 
   // ── ANEXO 3: Retroactivo ──
   // Sin pago: todo se acumula en post (capitalPre/intPre quedan en 0).
