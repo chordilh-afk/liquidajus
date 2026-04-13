@@ -225,7 +225,7 @@ select.field-input{cursor:pointer;}
   <div id="rems-extract-status" style="display:none;font-size:11px;padding:6px 10px;border-radius:4px;margin-bottom:8px"></div>
   <div class="rems-table-wrap">
     <table class="rems-table" id="rems-table">
-      <thead><tr><th>Período</th><th>Rem. Original</th><th>Meses</th><th>Moneda</th><th>Tipo</th><th>Coef. ISBIC</th><th>Rem. Actualizada ($)</th><th></th></tr></thead>
+      <thead><tr><th>Período</th><th>Rem. Original</th><th>Moneda</th><th>Tipo</th><th>Coef. ISBIC</th><th>Rem. Actualizada ($)</th><th></th></tr></thead>
       <tbody id="rems-body"></tbody>
     </table>
   </div>
@@ -534,14 +534,6 @@ const ISBIC_REF = 1213938.4; // feb/2009 — punto de referencia Elliff/Blanco
 // MOVILIDADES LEY 26.417 y sucesoras
 // ═══════════════════════════════════════════════════════
 const MOVS = [
-  // ── Aumentos pre-Ley 26.417 (jul/2003 a feb/2009) ──
-  // Validados contra Anexo I de BlueCorp caso Di Dio (alta 06/2003).
-  // Los Dec. 391/03, 1194/03 y 683/04 NO se incluyen: son cambios al
-  // descuento de obra social, no aumentos del haber bruto.
-  {m:9,y:2004,f:1.1000,n:"Dec. 1199/04"},
-  {m:6,y:2006,f:1.1100,n:"Dec. 764/2006"},
-  {m:1,y:2007,f:1.1300,n:"Ley 26198"},
-  {m:7,y:2007,f:1.0683,n:"Ley 26222"},
   {m:9,y:2007,f:1.1250,n:"Dec. 1346/2007"},{m:3,y:2008,f:1.0750,n:"Dec. 279/2008"},
   {m:7,y:2008,f:1.0750,n:"Dec. 279/2008"},{m:3,y:2009,f:1.1169,n:"Ley 26417 - Res. 135/09"},
   {m:9,y:2009,f:1.0734,n:"Res. 65/09"},{m:3,y:2010,f:1.0821,n:"Res. 130/10"},
@@ -556,7 +548,7 @@ const MOVS = [
   {m:6,y:2018,f:1.0569,n:"Cir. 32/18"},{m:9,y:2018,f:1.0668,n:"Res. 125/18"},
   {m:12,y:2018,f:1.0778,n:"Res. 2/18 SSS"},{m:3,y:2019,f:1.1183,n:"Res. 4/19"},
   {m:6,y:2019,f:1.1074,n:"Res. 8/19"},{m:9,y:2019,f:1.1222,n:"Res. 12/2019"},
-  {m:12,y:2019,f:1.0874,n:"Cir. 65/2019"},{m:3,y:2020,f:1.0230,b:1500,n:"Dec. 163/2020 (+$1500 suma fija)"},
+  {m:12,y:2019,f:1.0874,n:"Cir. 65/2019"},{m:3,y:2020,f:1.0230,n:"Dec. 163/2020"},
   {m:6,y:2020,f:1.0612,n:"Dec. 495/2020"},{m:9,y:2020,f:1.0750,n:"Dec. 692/2020"},
   {m:12,y:2020,f:1.0500,n:"Dec. 899/2020"},{m:3,y:2021,f:1.0807,n:"Res. 48/2021"},
   {m:6,y:2021,f:1.1212,n:"Res. 105/21"},{m:9,y:2021,f:1.1239,n:"Res. 171/2021"},
@@ -2845,7 +2837,7 @@ const p=(s)=>parseFloat(String(s||0).replace(',','.'))||0;
 function parseFecha(s){
   if(!s) return null;
   const pt=s.split('/');
-  if(pt.length===3) return {d:parseInt(pt[0]),m:parseInt(pt[1]),y:parseInt(pt[2])};
+  if(pt.length===3) return {m:parseInt(pt[1]),y:parseInt(pt[2])};
   if(pt.length===2) return {m:parseInt(pt[0]),y:parseInt(pt[1])};
   return null;
 }
@@ -2870,100 +2862,20 @@ function movsAcum(mD,yD,mH,yH){
   return f;
 }
 
-// ══════════════════════════════════════════════════════
-// IS INDEC NIVEL GENERAL — Movilidad del HABER REAJUSTADO
-// ══════════════════════════════════════════════════════
-// Para el período ene/2002–dic/2006, la movilidad del haber REAJUSTADO
-// sigue el Índice de Salarios Nivel General del INDEC (base oct-2001=100),
-// aplicado como coeficiente acumulado mes a mes:
-//
-//   haber(m,y) = haber_alta × IS_INDEC[m,y] / IS_INDEC[m_alta, y_alta]
-//
-// Referencia legal: doctrina Sánchez/Badaro (CSJN 2005-2007), desarrollada
-// por BlueCorp como "Salarios Nivel General INDEC Anual" en su metodología.
-// Los valores mensuales se mantienen constantes dentro del año y saltan en
-// diciembre de cada año, reflejando el ajuste anual del índice.
-//
-// Valores extraídos directamente del PDF BlueCorp caso Di Dio (validado
-// al centavo contra los haberes del Anexo "Haber Reajustado Inicial y
-// Movilidad" de Di Dio, alta 06/2003, para las fechas 12/2003 → 684,37
-// en 12/2006):
-//   IS_INDEC[hasta 11/2002] = 1.000000 (sin movilidad hasta 31/12/2001)
-//   IS_INDEC[12/2002 → 11/2003] = 1.075899
-//   IS_INDEC[12/2003 → 11/2004] = 1.205767
-//   IS_INDEC[12/2004 → 11/2005] = 1.318214
-//   IS_INDEC[12/2005 → 11/2006] = 1.585962
-//   IS_INDEC[12/2006] = 1.885651
-//
-// Desde 01/2007 en adelante la movilidad del reajustado pasa a Aumentos
-// Generales ANSeS (MOVS común), salvo 07/2007 que tiene factor 1.0480 en
-// lugar de 1.0683 (Ley 26222 aplicada al puro reajustado vs al pago).
-// Desde Ley 26.417 (03/2009) las cadenas caja y reaj son idénticas.
-function IS_INDEC_NG_coef(m, y){
-  const p = y*100 + m;
-  if(p <= 200211) return 1.000000; // sin movilidad hasta 31/12/2001
-  if(p <= 200311) return 1.075899; // salto dic/2002
-  if(p <= 200411) return 1.205767; // salto dic/2003
-  if(p <= 200511) return 1.318214; // salto dic/2004
-  if(p <= 200611) return 1.585962; // salto dic/2005
-  if(p <= 200612) return 1.885651; // salto dic/2006
-  return null; // post-dic/2006: aplicar MOVS común
-}
-
-// Movilidad específica del REAJUSTADO para 07/2007: Ley 26222 aplicada al puro
-// arroja 1.0480 (vs 1.0683 para el caja). Los demás factores post-dic/2006
-// coinciden con MOVS común.
-const MOVS_REAJ_OVERRIDE = [
-  {m:7, y:2007, f:1.0480, n:"Ley 26222 (sobre puro reaj)"},
-];
-
-// Aplicar movilidad mes a mes sobre haber — retorna array.
-// esReajustado=true: usa IS_INDEC_NG (hasta dic/2006) + MOVS_REAJ_OVERRIDE + MOVS común.
-// esReajustado=false (default): usa MOVS común (cadena del haber al pago).
-function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro, esReajustado){
+// Aplicar movilidad mes a mes sobre haber — retorna array
+function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro){
   const res=[];
   let h=haberInicial, m=mIni, y=yIni;
-  // Para el reajustado, precomputar el coef IS INDEC al alta
-  const coefAlta = esReajustado ? IS_INDEC_NG_coef(mIni, yIni) : null;
-  let coefAnterior = coefAlta; // último coef IS INDEC aplicado (para detectar saltos)
   while(y*100+m <= yFin*100+mFin){
-    const p=y*100+m;
-    let mv = null;
-    let norma = null;
-    if(esReajustado && p <= 200612){
-      // Período IS INDEC NG: aplicar salto si el coef cambió respecto del mes anterior
-      const coefActual = IS_INDEC_NG_coef(m, y);
-      if(coefActual !== null && coefAnterior !== null && coefActual !== coefAnterior){
-        const factor = Math.round(coefActual / coefAnterior * 100000) / 100000;
-        h = Math.round(h * factor * 100) / 100;
-        mv = {f: factor, n: `IS INDEC Nivel General — coef ${coefActual.toFixed(6)}`};
-        norma = mv.n;
-      }
-      coefAnterior = coefActual;
-    } else {
-      // Post dic/2006 o modo caja: usar MOVS común (con override para 07/2007 si reaj)
-      if(esReajustado){
-        mv = MOVS_REAJ_OVERRIDE.find(x=>x.m===m&&x.y===y) || MOVS.find(x=>x.m===m&&x.y===y);
-      } else {
-        mv = MOVS.find(x=>x.m===m&&x.y===y);
-      }
-      if(mv){
-        h = Math.round(h * mv.f * 100) / 100;
-        // Suma fija post-factor (bonos de algunos decretos 2020-2021)
-        if(mv.b) h = Math.round((h + mv.b) * 100) / 100;
-        norma = mv.n;
-      }
-    }
+    // Movilidad normal (MOVS)
+    const mv=MOVS.find(x=>x.m===m&&x.y===y);
     // Movilidad Badaro (IS INDEC 2002-2006) — solo si usarBadaro=true y año en rango
-    // Nota: no aplica en modo reajustado porque IS_INDEC_NG ya cubre ese período
-    const bv = (usarBadaro && !esReajustado) ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
-    if(bv){
-      h = Math.round(h * bv.factor * 100) / 100;
-      norma = bv.norma;
-    }
-    res.push({m, y, haber: h,
-      factor: bv ? bv.factor : (mv ? mv.f : null),
-      norma: norma});
+    const bv=usarBadaro ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
+    if(bv) h=Math.round(h*bv.factor*100)/100;
+    if(mv) h=Math.round(h*mv.f*100)/100;
+    res.push({m,y,haber:h,
+      factor:bv?bv.factor:(mv?mv.f:null),
+      norma:bv?bv.norma:(mv?mv.n:null)});
     const n=sigMes(m,y); m=n.m; y=n.y;
   }
   return res;
@@ -2977,6 +2889,31 @@ function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadar
 // Se aplica solo cuando d.badaro_movilidad = true
 // y fecha adquisición ≤ dic/2006
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// IS INDEC NIVEL GENERAL — Factores acumulados (Badaro CSJN)
+// ══════════════════════════════════════════════════════
+// Período ene/2002–dic/2006, aplicado como COEFICIENTE ACUMULADO
+// (no como factor mes a mes). Extraídos del PDF BlueCorp Di Dio:
+//   hasta 11/2002: 1.000000 (base, sin movilidad hasta 31/12/2001)
+//   12/2002 → 11/2003: 1.075899
+//   12/2003 → 11/2004: 1.205767
+//   12/2004 → 11/2005: 1.318214
+//   12/2005 → 11/2006: 1.585962
+//   12/2006 en adelante: 1.885651 (Badaro final)
+//
+// El factor fijo de Badaro PBU es 2.1305 (= 1.885651 × 1.13, donde 1.13 es
+// Ley 26198 en ene/2007), pero Jáuregui lo reporta como 2.13085 (drift 0.02%).
+// Se aplica solo cuando d.badaro_movilidad = true o actualizacion_pbu = 'isbic'.
+function IS_INDEC_NG_coef_adq(m, y){
+  const p=y*100+m;
+  if(p<=200211) return 1.000000;
+  if(p<=200311) return 1.075899;
+  if(p<=200411) return 1.205767;
+  if(p<=200511) return 1.318214;
+  if(p<=200611) return 1.585962;
+  return 1.885651; // 12/2006 en adelante — factor Badaro final
+}
+
 const BADARO_MOVS = [
   {m:1,anio:2002,factor:1.0560,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
   {m:1,anio:2003,factor:1.1780,norma:'IS INDEC Nivel Gral. — Badaro CSJN 26.11.2007'},
@@ -3013,26 +2950,37 @@ function coefActualizacion(m,y,mAdq,yAdq,modo){
     }
   }
 
-  // Modo ISBIC (default) o fallback
+  // Modo ISBIC (default) o fallback — Doctrina Elliff/Blanco
+  //
+  // Regla correcta (validada al 0.000% vs Jáuregui caso ROJAS, 7 checkpoints):
+  //   - Si (m,y) ≤ feb/2009 y adq ≤ feb/2009:
+  //       coef = ISBIC[adq] / ISBIC[rem]  (ratio directo)
+  //   - Si (m,y) ≤ feb/2009 y adq > feb/2009:
+  //       coef = (ISBIC_REF / ISBIC[rem]) × movsAcum(feb/2009 → adq)
+  //       (ISBIC hasta feb/2009, después movilidades por art.2 Ley 26.417)
+  //   - Si (m,y) > feb/2009:
+  //       coef = movsAcum(rem → adq)
+  //       (post feb/2009 todo es movilidad, sin ISBIC)
+  //
+  // El bug anterior: aplicaba siempre la segunda rama cuando pRem ≤ feb/2009.
+  // Para adq pre-feb/2009, movsAcum(feb/2009 → adq) va al revés y devuelve 1,
+  // dejando el coef en ~5.3x (bug 5x) cuando debería ser ~1.2x.
   if(pRem<=pFeb09){
     const isbicRem=ISBIC[pRem];
     if(!isbicRem) return null;
-    // ── BUG FIX v4.6.1 ──
-    // Si la adquisición también es ≤ feb/2009 (jubilados pre-Elliff/Blanco),
-    // el coef es ratio directo ISBIC[adq]/ISBIC[rem]. NO pasar por feb/2009:
-    // hacerlo multiplica ratioISBIC=ISBIC_REF/ISBIC[rem] (≈5.3 para 06/2003)
-    // por movsAcum(02/2009 → adq) que devuelve 1 cuando va hacia atrás,
-    // inflando el coef ~5x. Validado vs BlueCorp Di Dio (adq 06/2003).
     if(pAdq<=pFeb09){
+      // Ambos pre-feb/2009: ratio ISBIC directo
       const isbicAdq=ISBIC[pAdq];
       if(!isbicAdq) return null;
       return Math.round(isbicAdq/isbicRem*100000)/100000;
+    } else {
+      // Rem pre-feb/2009, adq post: empalmar en feb/2009
+      const ratioISBIC=ISBIC_REF/isbicRem;
+      const movDesde=movsAcum(2,2009,mAdq,yAdq);
+      return Math.round(ratioISBIC*movDesde*100000)/100000;
     }
-    // Adquisición post-feb/2009: ISBIC hasta feb/2009, luego movilidades (Elliff/Blanco)
-    const ratioISBIC=ISBIC_REF/isbicRem;
-    const movDesde=movsAcum(2,2009,mAdq,yAdq);
-    return Math.round(ratioISBIC*movDesde*100000)/100000;
   } else {
+    // Rem post feb/2009: solo movilidades
     return Math.round(movsAcum(m,y,mAdq,yAdq)*100000)/100000;
   }
 }
@@ -3451,13 +3399,9 @@ const CAMPOS=[
   {k:'analizar_conf_res6',l:'Analizar confiscatoriedad tope Res. 6/09',t:'chk'},
   {sec:'OTROS PARÁMETROS'},
   {k:'ganancias_exento',l:'Ganancias exento sobre retroactivos (García)',t:'chk'},
-  {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre) — auto, destildar para omitir',t:'chk',default:true},
+  {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre)',t:'chk'},
   {k:'makler',l:'Makler — computar todos los períodos autónomos',t:'chk'},
   {k:'volonte',l:'Volonté — actualizar categorías autónomas pre-1994',t:'chk'},
-  {sec:'PAGO PARCIAL — Si la accionada ya pagó retroactivo y reajustó el haber'},
-  {k:'pago_fecha',l:'Fecha del pago / mes que reajustó (MM/AAAA)',t:'text'},
-  {k:'pago_retro_monto',l:'Monto retroactivo abonado ($)',t:'number'},
-  {k:'pago_nuevo_haber',l:'Nuevo haber percibido al mes del pago ($)',t:'number'},
   {sec:'NOTAS'},
   {k:'notas_sentencia',l:'⚠ Observaciones sentencia (IA)',t:'text',c:true},
   {k:'citas_no_reconocidas',l:'⚠ Citas no reconocidas — VERIFICAR',t:'text',c:true},
@@ -3475,13 +3419,7 @@ function mostrarEditor(d){
   let html='<div class="editor-grid">';
   for(const c of CAMPOS){
     if(c.sec){ html+=`<div class="section-head">${c.sec}</div>`; continue; }
-    // Aplicar default si el campo nunca fue seteado (solo para chk con default)
-    let v=d[c.k];
-    if(c.t==='chk' && c.default===true && (v===undefined||v===null)){
-      v=true;
-      d[c.k]=true; // persistir para que leerEditor lo tome
-    }
-    const miss=(v===null||v===undefined||v===''||v===0)&&c.c;
+    const v=d[c.k]; const miss=(v===null||v===undefined||v===''||v===0)&&c.c;
     const cls=miss?'field-input warn':'field-input';
     if(c.t==='chk'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
@@ -3604,21 +3542,17 @@ function renderRemsTable(){
   let html='';
   for(let i=0;i<S.rems.length;i++){
     const r=S.rems[i];
-    const meses = parseInt(r.meses)||1;
     let coef='', remAct='', remEnPesos='';
     if(fadq && r.rem){
       const modoActT = S.datos.modo_actualizacion && S.datos.modo_actualizacion.includes('RIPTE') ? 'ripte' : 'isbic';
       const c=coefActualizacion(r.m,r.y,fadq.m,fadq.y,modoActT);
-      // Si meses>1, el importe es ANUAL → mostrar el equivalente mensual actualizado
-      // (que es lo que efectivamente entra al promedio tras expandirRems).
-      const importeOriginal = p(r.rem);
-      const importeMensualOrig = meses>1 ? importeOriginal/meses : importeOriginal;
-      const importeEnPesos = convertirAPesos(importeMensualOrig, r.m, r.y);
+      // Convertir a pesos ($) antes de aplicar ISBIC
+      const importeEnPesos = convertirAPesos(p(r.rem), r.m, r.y);
       const fc = factorConversion(r.m, r.y);
       if(fc > 1) remEnPesos = importeEnPesos.toExponential(4);
       if(c){
         coef=c.toFixed(4);
-        remAct=fmt(Math.round(importeEnPesos*c*100)/100) + (meses>1?' <span style="font-size:9px;color:var(--muted)">/mes</span>':'');
+        remAct=fmt(Math.round(importeEnPesos*c*100)/100);
       } else {
         coef='Sin datos ISBIC';
       }
@@ -3637,7 +3571,6 @@ function renderRemsTable(){
     html+=`<tr style="${bgMoneda?'background:'+bgMoneda:''}">
       <td><input value="${fmtP(r.m,r.y)}" onchange="S.rems[${i}].m=parseInt(this.value.split('/')[0]);S.rems[${i}].y=parseInt(this.value.split('/')[1]);recalcCoefs()" style="width:70px"></td>
       <td><input value="${r.rem}" onchange="S.rems[${i}].rem=this.value;recalcCoefs()" placeholder="0.00" style="width:100px"></td>
-      <td><input type="number" min="1" max="12" value="${meses}" onchange="S.rems[${i}].meses=parseInt(this.value)||1;recalcCoefs()" style="width:42px;text-align:center" title="Cantidad de meses que cubre el importe (1=mensual, 12=anual completo, 9=anual parcial)"></td>
       <td style="font-size:10px;font-weight:600;color:${monedaColor}">${monedaDisplay}${remEnPesos?'<br><span style="font-size:8px;color:var(--muted);font-weight:400">≈$'+remEnPesos+'</span>':''}</td>
       <td><select onchange="S.rems[${i}].tipo=this.value" style="font-size:10px;border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:var(--bg)">
         <option value="dep" ${tipo==='dep'?'selected':''}>Dep.</option>
@@ -3651,8 +3584,7 @@ function renderRemsTable(){
   document.getElementById('rems-body').innerHTML=html;
 
   const total=S.rems.filter(r=>r.rem).length;
-  const totalMeses=S.rems.filter(r=>r.rem).reduce((a,r)=>a+(parseInt(r.meses)||1),0);
-  document.getElementById('rem-info').textContent=total>0?`${total} fila${total!==1?'s':''} · ${totalMeses} meses efectivos`:'';
+  document.getElementById('rem-info').textContent=total>0?`${total} remuneraciones ingresadas`:'';
 }
 
 function recalcCoefs(){ renderRemsTable(); }
@@ -3690,40 +3622,23 @@ async function extraerRemuneraciones(){
 Devolvé ÚNICAMENTE un JSON válido con este formato (sin texto adicional, sin markdown):
 {
   "remuneraciones": [
-    {"mes": 12, "anio": 1992, "importe": 4114.00, "meses": 12},
-    {"mes": 9, "anio": 1994, "importe": 4872.82, "meses": 9},
-    {"mes": 5, "anio": 2004, "importe": 1234.56, "meses": 1}
+    {"mes": 5, "anio": 2004, "importe": 1234.56},
+    {"mes": 6, "anio": 2004, "importe": 0}
   ],
-  "formato": "anual",
-  "total_meses": 129,
-  "suma_total_original": 60886.94,
+  "total_meses": 124,
+  "suma_total_original": 191893.00,
   "notas": ""
 }
 
 REGLAS:
-- Buscá la sección "DETALLE DE REMUNERACIONES" (tabla con año/fecha/importe).
-- DOS FORMATOS POSIBLES — detectá cuál es y respetalo:
-
-  FORMATO ANUAL (típico de ANSeS, ej. Di Dio):
-    Tiene columnas tipo "ANIO | FECHA DESDE | FECHA HASTA | CANT.MESES | IMPORTE ORIGINAL"
-    cada fila representa UN AÑO con un total anual y la cantidad de meses trabajados.
-    → devolvé una fila por año con:
-       mes  = el mes de "FECHA HASTA" (ej. fecha hasta 30/09/1994 → mes=9)
-       anio = el año
-       importe = el IMPORTE ORIGINAL ANUAL completo (NO dividir vos)
-       meses  = el valor de la columna CANT.MESES (ej. 12, 9, 6...)
-    → "formato": "anual"
-
-  FORMATO MENSUAL:
-    Tabla con una fila por mes individual.
-    → devolvé una fila por mes con meses=1.
-    → "formato": "mensual"
-
-- Usá SIEMPRE el IMPORTE ORIGINAL (no el actualizado). Hay columnas "IMPORTE ORIGINAL" e "IMPORTE ACTUALIZ." — tomá la original.
-- Si en formato mensual un mes tiene dos filas (dos empleadores), SUMÁ los importes.
-- mes: entero 1-12. anio: entero (ej. 2004). importe: decimal con punto. meses: entero ≥1.
-- Incluí SOLO los períodos que aparecen en la tabla — no inventes.
-- Usá punto como separador decimal (no coma).`;
+- Extraé TODAS las remuneraciones del "DETALLE DE REMUNERACIONES" (sección con tabla año/fecha/importe)
+- Usá el IMPORTE ORIGINAL (no el actualizado). En la tabla hay columnas "IMPORTE ORIGINAL" e "IMPORTE ACTUALIZ." — tomá la original
+- Si un mes tiene dos filas (por ejemplo dos empleadores distintos en el mismo mes), SUMÁ los importes
+- mes: número entero 1-12. anio: número entero (ej. 2004)
+- importe: número decimal, 0 si el mes está vacío o sin remuneración
+- Incluí SOLO los meses que aparecen en la tabla — no agregues meses que no estén
+- Si hay períodos sin remuneración entre filas, no los infergas — solo lo que está explícito
+- Usá punto como separador decimal (no coma)`;
 
     // Llamado con retry automático para rate limit 429
     let resp, intentos = 0;
@@ -3788,17 +3703,14 @@ REGLAS:
     if(!rems.length) throw new Error('No se encontraron remuneraciones en el documento.');
 
     // Cargar en S.rems — conservar tipo 'dep' por defecto (dependiente)
-    // Los autónomos se pueden marcar manualmente si es mixto.
-    // Si formato="anual", cada fila trae meses=N (12, 9, etc.) y la expansión
-    // a mensuales sintéticas la hace expandirRems() en calcularLiquidacion.
+    // Los autónomos se pueden marcar manualmente si es mixto
     S.rems = rems
       .filter(r => r.mes && r.anio)
       .map(r => ({
         m: parseInt(r.mes),
         y: parseInt(r.anio),
         rem: r.importe > 0 ? String(r.importe) : '',
-        tipo: 'dep',
-        meses: parseInt(r.meses)||1
+        tipo: 'dep'
       }))
       .sort((a,b) => a.y*100+a.m - (b.y*100+b.m));
 
@@ -3831,69 +3743,9 @@ REGLAS:
 
 
 // ═══════════════════════════════════════════════════════
-// EXPANSIÓN DE REMUNERACIONES ANUALES → MENSUALES
-// ═══════════════════════════════════════════════════════
-// Las resoluciones de ANSeS suelen listar el "DETALLE DE REMUNERACIONES"
-// como totales anuales con una columna "CANT.MESES" (ej. Di Dio: 1994 con
-// $4.872,82 / 9 meses). BlueCorp desagrega: importe_mensual = anual/meses,
-// y aplica ISBIC mes-a-mes a cada uno de los N meses (los coeficientes
-// ISBIC varían intra-año, especialmente en 1992-93).
-//
-// Esta función expande cada fila con meses>1 en N filas mensuales sintéticas
-// distribuidas hacia atrás desde (r.m, r.y) inclusive. Ejemplo:
-//   {m:12, y:1992, rem:"4114", meses:12}
-//   → 12 filas: 01/1992..12/1992 con rem="342.8333" cada una.
-//   {m:9, y:1994, rem:"4872.82", meses:9}
-//   → 9 filas: 01/1994..09/1994 con rem="541.4244" cada una.
-//
-// Filas con meses=1, sin meses, o con rem vacío pasan tal cual (back-compat).
-function expandirRems(rems){
-  if(!rems || !rems.length) return rems||[];
-  const out=[];
-  for(const r of rems){
-    const meses = parseInt(r.meses)||1;
-    if(meses<=1){ out.push(r); continue; }
-    const importeAnual = p(r.rem);
-    if(!importeAnual){ out.push(r); continue; }
-    const mensual = importeAnual/meses;
-    const mensualStr = String(mensual);
-    // Distribuir N meses hacia atrás desde (r.m, r.y) inclusive
-    let mm=parseInt(r.m), yy=parseInt(r.y);
-    const buf=[];
-    for(let k=0;k<meses;k++){
-      buf.push({m:mm, y:yy, rem:mensualStr, tipo:r.tipo||'dep', meses:1});
-      mm--; if(mm<1){mm=12;yy--;}
-    }
-    buf.reverse();
-    for(const x of buf) out.push(x);
-  }
-  return out;
-}
-
-// ═══════════════════════════════════════════════════════
 // MOTOR DE CÁLCULO
 // ═══════════════════════════════════════════════════════
 function calcularLiquidacion(d, rems){
-  // Expandir filas anuales (meses>1) → mensuales sintéticas con importe/meses.
-  // Back-compat: filas sin "meses" o con meses=1 pasan tal cual.
-  // No toca el motor de intereses (que ni ve rems).
-  rems = expandirRems(rems);
-
-  // ── Art. 24 Ley 24.241 — promedio sobre los 120 meses más recientes ──
-  // BlueCorp: si el aportante tiene >120 meses cargados, descarta los más
-  // antiguos. Ej. Di Dio (129 meses, cese 12/2002): de 1992 toma solo
-  // oct/nov/dic (los 3 más recientes) para llegar a 120, descartando ene-sep.
-  // Sum/120 = 507,39 en lugar de Sum/129. No aplica a Ley 18.037/18.038
-  // (que tiene su propio promedio precalculado vía ley18037_promedio).
-  if(d.ley_aplicada !== '18037' && d.ley_aplicada !== '18038' && rems && rems.length > 0){
-    const ord = (a,b) => (b.y*100+b.m) - (a.y*100+a.m); // desc por fecha
-    const dep = rems.filter(r => r.tipo !== 'aut' && r.rem && p(r.rem) > 0).sort(ord);
-    const aut = rems.filter(r => r.tipo === 'aut' && r.rem && p(r.rem) > 0).sort(ord);
-    const otros = rems.filter(r => !r.rem || p(r.rem) <= 0); // ceros — no afectan promedio
-    if(dep.length > 120) console.log(`Art. 24: trim dep ${dep.length}→120 (más recientes)`);
-    if(aut.length > 120) console.log(`Art. 24: trim aut ${aut.length}→120 (más recientes)`);
-    rems = [...dep.slice(0, 120), ...aut.slice(0, 120), ...otros];
-  }
   const fadq=parseFecha(d.fecha_adquisicion)||{m:1,y:2007};
   const fcierre=parseFecha(d.fecha_cierre)||{m:new Date().getMonth()+1,y:new Date().getFullYear()};
   const fretro=parseFecha(d.fecha_inicio_retro)||fadq;
@@ -3973,8 +3825,12 @@ function calcularLiquidacion(d, rems){
   }
 
   // ══════════════════════════════════════════════════════
-  // FÓRMULA PC/PAP — combinada con meses (Jáuregui/24241)
-  // PC = 0.015 × N × ((n_dep × W) + (m_aut × R)) / (n + m)
+  // FÓRMULA PC/PAP — art. 24 y 30 Ley 24.241 (Jáuregui/BC)
+  // PC  = 0.0150 × N × ((n_dep × W) + (m_aut × R)) / (n + m)
+  // PAP = 0.0085 × N × ((n_dep × W) + (m_aut × R)) / (n + m)
+  // NOTA: el multiplicador es el ÚNICO cambio entre PC y PAP.
+  // La PC usa 1.5% por año (art.24) y la PAP usa 0.85% por año (art.30).
+  // Un único `calcPC` hardcodeado a 0.015 inflaba la PAP ~76% (0.015/0.0085).
   // ══════════════════════════════════════════════════════
   const N_pc  = p(d.anios_pc)    || 0;
   const n_pc  = p(d.meses_pc_dep) || 0;
@@ -4013,22 +3869,25 @@ function calcularLiquidacion(d, rems){
   const N_pap_con24 = Math.min(N_pap, 35);
 
   // ── Calcular PC/PAP con ambos promedios (con tope / sin tope rem) ──
-  function calcPC(N, n, m, W, R){
+  // PC usa 1.5% (art. 24), PAP usa 0.85% (art. 30)
+  function calcComp(pct, N, n, m, W, R){
     if(N<=0 || (n+m)<=0) return 0;
-    return Math.round(0.015 * N * ((n*W)+(m*R)) / (n+m) * 100) / 100;
+    return Math.round(pct * N * ((n*W)+(m*R)) / (n+m) * 100) / 100;
   }
+  const calcPC  = (N, n, m, W, R) => calcComp(0.015,  N, n, m, W, R);
+  const calcPAP = (N, n, m, W, R) => calcComp(0.0085, N, n, m, W, R);
 
   // PC/PAP SIN ningún tope (referencia máxima)
-  const pcSinTodo  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepSinTope, promAutSinTope) || pcA;
-  const papSinTodo = calcPC(N_pap_sin24, n_pap,m_pap,promDepSinTope, promAutSinTope) || papA;
+  const pcSinTodo  = calcPC (N_pc_sin24,  n_pc, m_pc, promDepSinTope, promAutSinTope) || pcA;
+  const papSinTodo = calcPAP(N_pap_sin24, n_pap,m_pap,promDepSinTope, promAutSinTope) || papA;
 
   // PC/PAP con tope Art.14 Res6/09 pero sin Art.24 ni Art.26
-  const pcConRem6  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
-  const papConRem6 = calcPC(N_pap_sin24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
+  const pcConRem6  = calcPC (N_pc_sin24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
+  const papConRem6 = calcPAP(N_pap_sin24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
 
   // PC/PAP con tope Art.24 (35 años)
-  const pcConArt24  = calcPC(N_pc_con24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
-  const papConArt24 = calcPC(N_pap_con24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
+  const pcConArt24  = calcPC (N_pc_con24,  n_pc, m_pc, promDepConTope, promAutConTope) || pcA;
+  const papConArt24 = calcPAP(N_pap_con24, n_pap,m_pap,promDepConTope, promAutConTope) || papA;
 
   // ══════════════════════════════════════════════════════
   // PBU reajustada (Quiroga CSJN 11/11/2014)
@@ -4063,10 +3922,26 @@ function calcularLiquidacion(d, rems){
   const bonusPBU = 1 + 0.01 * Math.max(0, Math.min(aniosPBU, 45) - 30);
 
   if(modoPBU === 'isbic'){
-    // Metodología correcta: IS INDEC (2002-2006) × movilidades ANSeS (2007+)
-    // coefPBU = IS_INDEC_PBU × movsAcum(12/2006, fecha_adquisición)
-    const movsPBU = movsAcum(12, 2006, fadq.m, fadq.y);
-    coefPBU_auto = Math.round(IS_INDEC_PBU * movsPBU * 100000) / 100000;
+    // Metodología CORRECTA (Quiroga/Marinati):
+    // coefPBU = IS_INDEC_PBU (factor Badaro acumulado 2002-2006, FIJO en 2.1305)
+    // NO se agrega movilidad posterior: Badaro solo corre hasta dic/2006 según doctrina.
+    // Validado contra Jáuregui caso ROJAS (alta 05/2007):
+    //   Jáuregui reporta coef PBU = 170.47/80 = 2.13085 → PBU = 200 × 2.13085 = 426.17
+    //   Matchea al centavo con IS_INDEC_PBU = 2.1305 (drift 0.02%).
+    // Para ALTAS pre-dic/2006, se usa el factor a la fecha de adq (parcial de Badaro).
+    const pAdq = fadq.y*100 + fadq.m;
+    let coefPBUFactor;
+    if(pAdq >= 200612){
+      // Alta post dic/2006 → factor Badaro completo
+      coefPBUFactor = IS_INDEC_PBU;
+    } else if(pAdq >= 200201){
+      // Alta dentro del rango Badaro → factor a la fecha de adq
+      coefPBUFactor = IS_INDEC_NG_coef_adq(fadq.m, fadq.y) || IS_INDEC_PBU;
+    } else {
+      // Alta pre-2002: no aplica Badaro PBU
+      coefPBUFactor = 1;
+    }
+    coefPBU_auto = Math.round(coefPBUFactor * 100000) / 100000;
 
     // Override manual (rango 1.5-100 para PBU)
     const manualCoef = p(d.coef_pbu);
@@ -4080,16 +3955,15 @@ function calcularLiquidacion(d, rems){
       pbuReaj = Math.round(200 * coefPBU_usado * bonusPBU * 100) / 100;
     }
 
-    console.log(`PBU IS_INDEC: IS_INDEC_PBU=${IS_INDEC_PBU} × movs(12/06→${fmtP(fadq.m,fadq.y)})=${movsPBU.toFixed(5)} = auto ${coefPBU_auto.toFixed(5)} | usado=${coefPBU_usado.toFixed(5)} | bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a) | PBU=$${pbuReaj.toFixed(2)}`);
+    console.log(`PBU Badaro: factor=${coefPBUFactor.toFixed(5)} (alta ${fmtP(fadq.m,fadq.y)}) | usado=${coefPBU_usado.toFixed(5)} | bonus=${bonusPBU.toFixed(2)} (${aniosPBU}a) | PBU=$${pbuReaj.toFixed(2)}`);
   } else if(modoPBU === 'ngr'){
     // NGR: si hay coef manual usarlo, sino hacer fallback al auto-cálculo IS INDEC
     const manualCoefNGR = p(d.coef_pbu);
     if(manualCoefNGR >= 1.5 && manualCoefNGR <= 100){
       coefPBU_usado = manualCoefNGR;
     } else {
-      // Fallback: mismo cálculo que modo ISBIC (IS INDEC + movilidades)
-      const movsPBU_ngr = movsAcum(12, 2006, fadq.m, fadq.y);
-      coefPBU_usado = Math.round(IS_INDEC_PBU * movsPBU_ngr * 100000) / 100000;
+      // Fallback: mismo cálculo que modo ISBIC (factor Badaro fijo)
+      coefPBU_usado = Math.round(IS_INDEC_PBU * 100000) / 100000;
       coefPBU_auto = coefPBU_usado;
       console.log(`PBU NGR sin coef manual → fallback IS INDEC: ${coefPBU_usado.toFixed(5)}`);
     }
@@ -4142,10 +4016,10 @@ function calcularLiquidacion(d, rems){
   // ── Art. 24 (tope 35 años servicios para PC) ──
   let confArt24 = null;
   if(N_pc > 35 || N_pap > 35){
-    const pcSin24  = calcPC(N_pc_sin24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
-    const papSin24 = calcPC(N_pap_sin24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
-    const pcCon24  = calcPC(N_pc_con24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
-    const papCon24 = calcPC(N_pap_con24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+    const pcSin24  = calcPC (N_pc_sin24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+    const papSin24 = calcPAP(N_pap_sin24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+    const pcCon24  = calcPC (N_pc_con24,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+    const papCon24 = calcPAP(N_pap_con24, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
     const hirs24   = pbuFinal + pcSin24 + papSin24;
     const quita24  = (pcSin24+papSin24) - (pcCon24+papCon24);
     const pct24    = hirs24>0 ? Math.round(quita24*100/hirs24*100)/100 : 0;
@@ -4158,8 +4032,8 @@ function calcularLiquidacion(d, rems){
   const N_pap_final = (confArt24?.liberado) ? N_pap_sin24 : N_pap_con24;
 
   // ── Calcular PC/PAP finales con los parámetros liberados/no ──
-  let pcReaj  = calcPC(N_pc_final,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
-  let papReaj = calcPC(N_pap_final, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
+  let pcReaj  = calcPC (N_pc_final,  n_pc, m_pc, promDepFinal, promAutFinal) || pcA;
+  let papReaj = calcPAP(N_pap_final, n_pap,m_pap,promDepFinal, promAutFinal) || papA;
   if(!pcReaj)  pcReaj  = pcA;
   if(!papReaj) papReaj = papA;
 
@@ -4248,57 +4122,16 @@ function calcularLiquidacion(d, rems){
     }
   }
 
-  // ── PAGO PARCIAL — Imputación a intereses primero, luego capital ──
-  // Si la accionada ya efectuó un pago parcial y reajustó el haber, desde
-  // ese mes el percibido toma el nuevo haber + movilidades subsiguientes,
-  // y el pago se imputa al saldo total del momento (interés primero, luego
-  // capital — arts. 870, 900 y 903 CCC). El capital remanente sigue
-  // devengando intereses desde la fecha del pago hasta el cierre.
-  // Validado contra BlueCorp caso Di Dio (pago 01/05/2021 $499.851,12).
-  const fpago = parseFecha(d.pago_fecha);
-  const pagoMonto = p(d.pago_retro_monto) || 0;
-  const pagoNuevoHaber = p(d.pago_nuevo_haber) || 0;
-  const tienePago = !!(fpago && pagoMonto > 0 && pagoNuevoHaber > 0);
-
-  // ── ANEXO 1: Caja mes a mes (cadena de movilidad del haber AL PAGO) ──
+  // ── ANEXO 1: Caja mes a mes ──
   const usarBadaro = !!(d.badaro_movilidad && fadq.y <= 2006);
-  const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro,false);
+  const anx1=aplicarMovilidadMesAMes(haberCajaInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
 
-  // Override del percibido desde el mes del pago: nuevo haber + movilidades subsiguientes.
-  // Cada fila ya viene con su `factor` de movilidad pre-calculado por aplicarMovilidadMesAMes,
-  // así que basta propagar haber[i] = haber[i-1] * factor[i] desde idxPago.
-  if(tienePago){
-    const pPago = fpago.y*100 + fpago.m;
-    const idxPago = anx1.findIndex(r => r.y*100 + r.m === pPago);
-    if(idxPago >= 0){
-      anx1[idxPago] = {...anx1[idxPago], haber: pagoNuevoHaber};
-      for(let i = idxPago + 1; i < anx1.length; i++){
-        const factor = anx1[i].factor || 1;
-        anx1[i] = {...anx1[i], haber: Math.round(anx1[i-1].haber * factor * 100) / 100};
-      }
-    } else {
-      console.warn(`Pago parcial: mes ${d.pago_fecha} fuera del rango de anx1 — pago ignorado`);
-    }
-  }
-
-  // ── ANEXO 2: Reajustado mes a mes (cadena de movilidad del haber PURO) ──
-  const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro,true);
+  // ── ANEXO 2: Reajustado mes a mes ──
+  const anx2=aplicarMovilidadMesAMes(haberReajInicial,fadq.m,fadq.y,fcierre.m,fcierre.y,usarBadaro);
 
   // ── ANEXO 3: Retroactivo ──
-  // Sin pago: todo se acumula en post (capitalPre/intPre quedan en 0).
-  // Con pago: las filas hasta (e inclusive) el mes del pago acumulan en pre,
-  // las posteriores en post. La fila del mes del pago da int=0 porque
-  // calcularIntereses devuelve 0 cuando mDev>=mCierre (la dif devenga al
-  // 1° del mes siguiente, que es post-pago).
-  //
-  // FRACCIÓN PRIMER MES: si fretro tiene día > 1 (ej. reclamo 24/03/2012),
-  // BC aplica el reajustado proporcional a los días post-reclamo / 30, y el
-  // percibido completo. Esto suele dar diferencia negativa en el primer mes
-  // (compensación por el inicio mid-month del retroactivo).
-  const diaRetro = (fretro.d && fretro.d > 1) ? fretro.d : 1;
-  const fracPrimerMes = diaRetro > 1 ? (31 - diaRetro) / 30 : 1;
   const anx3=[];
-  let capitalPre=0, intPre=0, capitalPost=0, intPost=0;
+  let totalCapital=0, totalInt=0;
 
   for(const row2 of anx2){
     const pRow=row2.y*100+row2.m;
@@ -4307,75 +4140,20 @@ function calcularLiquidacion(d, rems){
 
     const row1=anx1.find(x=>x.m===row2.m&&x.y===row2.y);
     const percibido=row1?row1.haber:haberCajaInicial;
-    // Primer mes: si el retro arranca después del día 1, aplicar fracción al reaj
-    const esPrimerMes = pRow === pRetro;
-    const reajustado = (esPrimerMes && fracPrimerMes < 1)
-      ? Math.round(row2.haber * fracPrimerMes * 100) / 100
-      : row2.haber;
+    const reajustado=row2.haber;
     const dif=Math.round((reajustado-percibido)*100)/100;
     const descOS=Math.round(dif*0.06*100)/100;
     const difNeta=Math.round((dif-descOS)*100)/100;
-    // SAC (Villanustre, CSJN) — automático en jun/dic salvo opt-out explícito.
-    // BC aplica el SAC como H.A.C. = difNeta/2 en los meses 06 y 12, siempre.
-    // El checkbox villanustre_sac=false permite desactivarlo en casos raros.
-    const sacActivo = d.villanustre_sac !== false; // default true
-    const sac=(sacActivo&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
+    const sac=(d.villanustre_sac&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
     const subtotal=difNeta+sac;
 
-    // Modo de interés según pre/post pago
-    let mInt = fcierre.m, yInt = fcierre.y, esPrePago = false;
-    if(tienePago && pRow <= fpago.y*100 + fpago.m){
-      mInt = fpago.m; yInt = fpago.y; esPrePago = true;
-    }
-    const intereses = calcularIntereses(subtotal, row2.m, row2.y, mInt, yInt, d.tasa_interes);
+    // Intereses: fórmula oficial BCRA Com. 14290 (o activa BNA si corresponde)
+    const intereses = calcularIntereses(subtotal, row2.m, row2.y, fcierre.m, fcierre.y, d.tasa_interes);
 
-    if(esPrePago){ capitalPre += subtotal; intPre += intereses; }
-    else         { capitalPost += subtotal; intPost += intereses; }
+    totalCapital+=subtotal;
+    totalInt+=intereses;
 
-    anx3.push({...row2,percibido,reajustado,dif,descOS,difNeta,sac,intereses,subtotal,total:subtotal+intereses,esPrePago});
-  }
-
-  // ── Aplicar pago e interés residual sobre capital remanente ──
-  let totalCapital, totalInt;
-  let pagoInfo = null;
-
-  if(tienePago){
-    const totalPre = Math.round((capitalPre + intPre) * 100) / 100;
-    let pagoRest = pagoMonto;
-    const intCubierto = Math.min(intPre, pagoRest);
-    pagoRest = Math.round((pagoRest - intCubierto) * 100) / 100;
-    const capCubierto = Math.min(capitalPre, pagoRest);
-    pagoRest = Math.round((pagoRest - capCubierto) * 100) / 100;
-    const capitalRemanente = Math.round((capitalPre - capCubierto) * 100) / 100;
-    const intRemanente = Math.round((intPre - intCubierto) * 100) / 100;
-
-    // Capital remanente sigue devengando interés desde fecha del pago hasta cierre.
-    // Pago al 1° de fpago.m → T0 = fin del mes anterior.
-    let mResD = fpago.m - 1, yResD = fpago.y;
-    if(mResD < 1){ mResD = 12; yResD--; }
-    const intResidual = capitalRemanente > 0
-      ? calcularIntereses(capitalRemanente, mResD, yResD, fcierre.m, fcierre.y, d.tasa_interes)
-      : 0;
-
-    totalCapital = Math.round((capitalRemanente + capitalPost) * 100) / 100;
-    totalInt     = Math.round((intRemanente + intResidual + intPost) * 100) / 100;
-
-    pagoInfo = {
-      fecha: d.pago_fecha, monto: pagoMonto, nuevoHaber: pagoNuevoHaber,
-      capitalPre: Math.round(capitalPre*100)/100,
-      intPre: Math.round(intPre*100)/100,
-      totalPre,
-      intCubierto: Math.round(intCubierto*100)/100,
-      capCubierto: Math.round(capCubierto*100)/100,
-      sobrante: pagoRest,
-      capitalRemanente, intRemanente, intResidual,
-      capitalPost: Math.round(capitalPost*100)/100,
-      intPost: Math.round(intPost*100)/100,
-      saldoFinalCapital: totalCapital, saldoFinalInt: totalInt
-    };
-  } else {
-    totalCapital = capitalPre + capitalPost; // capitalPre = 0 sin pago
-    totalInt     = intPre + intPost;          // intPre = 0 sin pago
+    anx3.push({...row2,percibido,reajustado,dif,descOS,difNeta,sac,intereses,total:subtotal+intereses});
   }
 
   const haberCierre=anx2[anx2.length-1]?.haber||haberReajInicial;
@@ -4385,7 +4163,6 @@ function calcularLiquidacion(d, rems){
     totalCapital:Math.round(totalCapital*100)/100,
     totalInt:Math.round(totalInt*100)/100,
     totalRetro:Math.round((totalCapital+totalInt)*100)/100,
-    pagoInfo,
     fadq,fcierre,fretro};
 }
 
@@ -4789,19 +4566,6 @@ function renderResultado(r){
         <div><div class="lr-label">Retroactividad total</div><div class="lr-value ${r.totalRetro<0?'style="color:#ffcccc"':''}">$${fmt(r.totalRetro)}</div></div>
         <div><div class="lr-label">Período</div><div class="lr-value w">${d.fecha_inicio_retro||'—'} → ${fmtP(r.fcierre.m,r.fcierre.y)}</div></div>
       </div>
-      ${r.pagoInfo ? `
-      <div style="margin:14px 0 0;padding:14px 18px;background:#fff8e7;border-left:3px solid #d4a574;border-radius:4px">
-        <div style="font-family:'Playfair Display',serif;font-size:14px;color:var(--ink2);margin-bottom:10px">💰 Pago parcial aplicado — ${r.pagoInfo.fecha}</div>
-        <table style="font-size:11px;width:100%;border-collapse:collapse">
-          <tr><td style="padding:3px 0">Total adeudado a ${r.pagoInfo.fecha}</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.totalPre)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Cap $${fmt(r.pagoInfo.capitalPre)} + Int $${fmt(r.pagoInfo.intPre)}</td></tr>
-          <tr><td style="padding:3px 0">Pago efectuado</td><td style="text-align:right;color:#1a5c3a;font-family:'Source Code Pro',monospace">−$${fmt(r.pagoInfo.monto)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Imputación: $${fmt(r.pagoInfo.intCubierto)} a interés · $${fmt(r.pagoInfo.capCubierto)} a capital${r.pagoInfo.sobrante>0?' · sobrante $'+fmt(r.pagoInfo.sobrante):''}</td></tr>
-          <tr style="border-top:1px solid #d4a574"><td style="padding:6px 0"><strong>Saldo capital al ${r.pagoInfo.fecha}</strong></td><td style="text-align:right;font-family:'Source Code Pro',monospace;padding:6px 0"><strong>$${fmt(r.pagoInfo.capitalRemanente)}</strong></td><td></td></tr>
-          <tr><td style="padding:3px 0">Interés residual sobre saldo (a ${fmtP(r.fcierre.m,r.fcierre.y)})</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.intResidual)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">Sobre $${fmt(r.pagoInfo.capitalRemanente)} desde el pago</td></tr>
-          <tr><td style="padding:3px 0">Nuevas diferencias post-pago</td><td style="text-align:right;font-family:'Source Code Pro',monospace">$${fmt(r.pagoInfo.capitalPost)}</td><td style="font-size:10px;color:var(--muted);padding-left:14px">+ Int $${fmt(r.pagoInfo.intPost)}</td></tr>
-          <tr style="border-top:2px solid #b8915d"><td style="padding:6px 0"><strong>Saldo final al ${fmtP(r.fcierre.m,r.fcierre.y)}</strong></td><td style="text-align:right;font-family:'Source Code Pro',monospace;padding:6px 0;font-size:13px"><strong>$${fmt(r.pagoInfo.saldoFinalCapital + r.pagoInfo.saldoFinalInt)}</strong></td><td style="font-size:10px;color:var(--muted);padding-left:14px">Cap $${fmt(r.pagoInfo.saldoFinalCapital)} + Int $${fmt(r.pagoInfo.saldoFinalInt)}</td></tr>
-        </table>
-        <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">Imputación conforme arts. 870, 900 y 903 CCC (interés primero, luego capital). El nuevo percibido ($${fmt(r.pagoInfo.nuevoHaber)}) se aplica desde ${r.pagoInfo.fecha} con las movilidades subsiguientes.</div>
-      </div>` : ''}
       ${r.totalRetro<0 ? `<div class="alert warn" style="margin:0;border-radius:0 0 6px 6px;background:#8b1a1a;color:white;border:none">
         ✗ <strong>BUG 4/5 DETECTADO — Retroactivo negativo ($${fmt(r.totalRetro)})</strong><br>
         El haber reajustado es menor al haber de caja, lo que es imposible en un expediente de reajuste.
