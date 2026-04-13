@@ -2845,7 +2845,7 @@ const p=(s)=>parseFloat(String(s||0).replace(',','.'))||0;
 function parseFecha(s){
   if(!s) return null;
   const pt=s.split('/');
-  if(pt.length===3) return {m:parseInt(pt[1]),y:parseInt(pt[2])};
+  if(pt.length===3) return {d:parseInt(pt[0]),m:parseInt(pt[1]),y:parseInt(pt[2])};
   if(pt.length===2) return {m:parseInt(pt[0]),y:parseInt(pt[1])};
   return null;
 }
@@ -2871,61 +2871,99 @@ function movsAcum(mD,yD,mH,yH){
 }
 
 // ══════════════════════════════════════════════════════
-// MOVILIDAD DEL HABER REAJUSTADO PRE-LEY 26.417
+// IS INDEC NIVEL GENERAL — Movilidad del HABER REAJUSTADO
 // ══════════════════════════════════════════════════════
-// Para el período 06/2003–02/2009, la cadena de movilidad del HABER
-// REAJUSTADO difiere de la cadena del HABER DE CAJA porque ANSeS aplicó
-// los decretos pre-2009 con "sumas fijas" sobre el haber al pago, mientras
-// que la sentencia de reajuste ordena aplicarlos como porcentaje pleno
-// sobre el haber puro. BlueCorp tiene dos cadenas distintas por esto mismo.
+// Para el período ene/2002–dic/2006, la movilidad del haber REAJUSTADO
+// sigue el Índice de Salarios Nivel General del INDEC (base oct-2001=100),
+// aplicado como coeficiente acumulado mes a mes:
 //
-// Los saltos ocurren en DIC de cada año (y 07/2007), no en los meses de
-// los decretos al pago (9/2004, 6/2006, etc.). Factores back-calculados
-// y validados contra BlueCorp caso Di Dio (alta 06/2003):
-//   factor acumulado 06/2003 → 07/2008 = 2.6984 (BC) vs 2.6985 (nuestra) → drift 0.003%
+//   haber(m,y) = haber_alta × IS_INDEC[m,y] / IS_INDEC[m_alta, y_alta]
 //
-// Desde Ley 26.417 (03/2009) en adelante, caja y reaj usan los MISMOS
-// factores de MOVS — esta tabla queda vacía a partir de allí.
-const MOVS_REAJ_PRE2009 = [
-  {m:12,y:2003,f:1.1207,n:"Dec. 1194/03 — art. 2 (sobre puro reaj)"},
-  {m:12,y:2004,f:1.0933,n:"Dec. 1199/04 — art. 4° (sobre puro reaj)"},
-  {m:12,y:2005,f:1.2032,n:"Aumentos 2005 acumulados (sobre puro reaj)"},
-  {m:12,y:2006,f:1.1889,n:"Aumentos 2006 acumulados (sobre puro reaj)"},
-  {m:1, y:2007,f:1.1300,n:"Ley 26198"},
-  {m:7, y:2007,f:1.0480,n:"Ley 26222 (sobre puro reaj)"},
-  {m:9, y:2007,f:1.1250,n:"Dec. 1346/2007"},
-  {m:3, y:2008,f:1.0750,n:"Dec. 279/2008"},
-  {m:7, y:2008,f:1.0750,n:"Dec. 279/2008"},
-  // 03/2009 en adelante: MOVS comunes (cadena unificada Ley 26.417)
+// Referencia legal: doctrina Sánchez/Badaro (CSJN 2005-2007), desarrollada
+// por BlueCorp como "Salarios Nivel General INDEC Anual" en su metodología.
+// Los valores mensuales se mantienen constantes dentro del año y saltan en
+// diciembre de cada año, reflejando el ajuste anual del índice.
+//
+// Valores extraídos directamente del PDF BlueCorp caso Di Dio (validado
+// al centavo contra los haberes del Anexo "Haber Reajustado Inicial y
+// Movilidad" de Di Dio, alta 06/2003, para las fechas 12/2003 → 684,37
+// en 12/2006):
+//   IS_INDEC[hasta 11/2002] = 1.000000 (sin movilidad hasta 31/12/2001)
+//   IS_INDEC[12/2002 → 11/2003] = 1.075899
+//   IS_INDEC[12/2003 → 11/2004] = 1.205767
+//   IS_INDEC[12/2004 → 11/2005] = 1.318214
+//   IS_INDEC[12/2005 → 11/2006] = 1.585962
+//   IS_INDEC[12/2006] = 1.885651
+//
+// Desde 01/2007 en adelante la movilidad del reajustado pasa a Aumentos
+// Generales ANSeS (MOVS común), salvo 07/2007 que tiene factor 1.0480 en
+// lugar de 1.0683 (Ley 26222 aplicada al puro reajustado vs al pago).
+// Desde Ley 26.417 (03/2009) las cadenas caja y reaj son idénticas.
+function IS_INDEC_NG_coef(m, y){
+  const p = y*100 + m;
+  if(p <= 200211) return 1.000000; // sin movilidad hasta 31/12/2001
+  if(p <= 200311) return 1.075899; // salto dic/2002
+  if(p <= 200411) return 1.205767; // salto dic/2003
+  if(p <= 200511) return 1.318214; // salto dic/2004
+  if(p <= 200611) return 1.585962; // salto dic/2005
+  if(p <= 200612) return 1.885651; // salto dic/2006
+  return null; // post-dic/2006: aplicar MOVS común
+}
+
+// Movilidad específica del REAJUSTADO para 07/2007: Ley 26222 aplicada al puro
+// arroja 1.0480 (vs 1.0683 para el caja). Los demás factores post-dic/2006
+// coinciden con MOVS común.
+const MOVS_REAJ_OVERRIDE = [
+  {m:7, y:2007, f:1.0480, n:"Ley 26222 (sobre puro reaj)"},
 ];
 
 // Aplicar movilidad mes a mes sobre haber — retorna array.
-// esReajustado=true: usa la cadena del haber REAJUSTADO para períodos
-// pre-Ley 26.417 (06/2003–02/2009); desde 03/2009 usa MOVS común.
-// esReajustado=false (default): usa MOVS común = cadena del haber de CAJA.
+// esReajustado=true: usa IS_INDEC_NG (hasta dic/2006) + MOVS_REAJ_OVERRIDE + MOVS común.
+// esReajustado=false (default): usa MOVS común (cadena del haber al pago).
 function aplicarMovilidadMesAMes(haberInicial, mIni, yIni, mFin, yFin, usarBadaro, esReajustado){
   const res=[];
   let h=haberInicial, m=mIni, y=yIni;
+  // Para el reajustado, precomputar el coef IS INDEC al alta
+  const coefAlta = esReajustado ? IS_INDEC_NG_coef(mIni, yIni) : null;
+  let coefAnterior = coefAlta; // último coef IS INDEC aplicado (para detectar saltos)
   while(y*100+m <= yFin*100+mFin){
     const p=y*100+m;
-    // Seleccionar tabla según reaj/caja y período (<02/2009 diverge, >=03/2009 igual)
-    let mv;
-    if(esReajustado && p<=200902){
-      mv=MOVS_REAJ_PRE2009.find(x=>x.m===m&&x.y===y);
+    let mv = null;
+    let norma = null;
+    if(esReajustado && p <= 200612){
+      // Período IS INDEC NG: aplicar salto si el coef cambió respecto del mes anterior
+      const coefActual = IS_INDEC_NG_coef(m, y);
+      if(coefActual !== null && coefAnterior !== null && coefActual !== coefAnterior){
+        const factor = Math.round(coefActual / coefAnterior * 100000) / 100000;
+        h = Math.round(h * factor * 100) / 100;
+        mv = {f: factor, n: `IS INDEC Nivel General — coef ${coefActual.toFixed(6)}`};
+        norma = mv.n;
+      }
+      coefAnterior = coefActual;
     } else {
-      mv=MOVS.find(x=>x.m===m&&x.y===y);
+      // Post dic/2006 o modo caja: usar MOVS común (con override para 07/2007 si reaj)
+      if(esReajustado){
+        mv = MOVS_REAJ_OVERRIDE.find(x=>x.m===m&&x.y===y) || MOVS.find(x=>x.m===m&&x.y===y);
+      } else {
+        mv = MOVS.find(x=>x.m===m&&x.y===y);
+      }
+      if(mv){
+        h = Math.round(h * mv.f * 100) / 100;
+        // Suma fija post-factor (bonos de algunos decretos 2020-2021)
+        if(mv.b) h = Math.round((h + mv.b) * 100) / 100;
+        norma = mv.n;
+      }
     }
     // Movilidad Badaro (IS INDEC 2002-2006) — solo si usarBadaro=true y año en rango
-    const bv=usarBadaro ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
-    if(bv) h=Math.round(h*bv.factor*100)/100;
-    if(mv){
-      h=Math.round(h*mv.f*100)/100;
-      // Suma fija post-factor (bonos de haber mínimo en algunos decretos)
-      if(mv.b) h=Math.round((h+mv.b)*100)/100;
+    // Nota: no aplica en modo reajustado porque IS_INDEC_NG ya cubre ese período
+    const bv = (usarBadaro && !esReajustado) ? BADARO_MOVS.find(x=>x.m===m&&x.anio===y) : null;
+    if(bv){
+      h = Math.round(h * bv.factor * 100) / 100;
+      norma = bv.norma;
     }
-    res.push({m,y,haber:h,
-      factor:bv?bv.factor:(mv?mv.f:null),
-      norma:bv?bv.norma:(mv?mv.n:null)});
+    res.push({m, y, haber: h,
+      factor: bv ? bv.factor : (mv ? mv.f : null),
+      norma: norma});
     const n=sigMes(m,y); m=n.m; y=n.y;
   }
   return res;
@@ -3413,7 +3451,7 @@ const CAMPOS=[
   {k:'analizar_conf_res6',l:'Analizar confiscatoriedad tope Res. 6/09',t:'chk'},
   {sec:'OTROS PARÁMETROS'},
   {k:'ganancias_exento',l:'Ganancias exento sobre retroactivos (García)',t:'chk'},
-  {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre)',t:'chk'},
+  {k:'villanustre_sac',l:'SAC sobre diferencias (Villanustre) — auto, destildar para omitir',t:'chk',default:true},
   {k:'makler',l:'Makler — computar todos los períodos autónomos',t:'chk'},
   {k:'volonte',l:'Volonté — actualizar categorías autónomas pre-1994',t:'chk'},
   {sec:'PAGO PARCIAL — Si la accionada ya pagó retroactivo y reajustó el haber'},
@@ -3437,7 +3475,13 @@ function mostrarEditor(d){
   let html='<div class="editor-grid">';
   for(const c of CAMPOS){
     if(c.sec){ html+=`<div class="section-head">${c.sec}</div>`; continue; }
-    const v=d[c.k]; const miss=(v===null||v===undefined||v===''||v===0)&&c.c;
+    // Aplicar default si el campo nunca fue seteado (solo para chk con default)
+    let v=d[c.k];
+    if(c.t==='chk' && c.default===true && (v===undefined||v===null)){
+      v=true;
+      d[c.k]=true; // persistir para que leerEditor lo tome
+    }
+    const miss=(v===null||v===undefined||v===''||v===0)&&c.c;
     const cls=miss?'field-input warn':'field-input';
     if(c.t==='chk'){
       html+=`<div class="field-row"><label class="field-label">${c.l}</label>
@@ -4246,6 +4290,13 @@ function calcularLiquidacion(d, rems){
   // las posteriores en post. La fila del mes del pago da int=0 porque
   // calcularIntereses devuelve 0 cuando mDev>=mCierre (la dif devenga al
   // 1° del mes siguiente, que es post-pago).
+  //
+  // FRACCIÓN PRIMER MES: si fretro tiene día > 1 (ej. reclamo 24/03/2012),
+  // BC aplica el reajustado proporcional a los días post-reclamo / 30, y el
+  // percibido completo. Esto suele dar diferencia negativa en el primer mes
+  // (compensación por el inicio mid-month del retroactivo).
+  const diaRetro = (fretro.d && fretro.d > 1) ? fretro.d : 1;
+  const fracPrimerMes = diaRetro > 1 ? (31 - diaRetro) / 30 : 1;
   const anx3=[];
   let capitalPre=0, intPre=0, capitalPost=0, intPost=0;
 
@@ -4256,11 +4307,19 @@ function calcularLiquidacion(d, rems){
 
     const row1=anx1.find(x=>x.m===row2.m&&x.y===row2.y);
     const percibido=row1?row1.haber:haberCajaInicial;
-    const reajustado=row2.haber;
+    // Primer mes: si el retro arranca después del día 1, aplicar fracción al reaj
+    const esPrimerMes = pRow === pRetro;
+    const reajustado = (esPrimerMes && fracPrimerMes < 1)
+      ? Math.round(row2.haber * fracPrimerMes * 100) / 100
+      : row2.haber;
     const dif=Math.round((reajustado-percibido)*100)/100;
     const descOS=Math.round(dif*0.06*100)/100;
     const difNeta=Math.round((dif-descOS)*100)/100;
-    const sac=(d.villanustre_sac&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
+    // SAC (Villanustre, CSJN) — automático en jun/dic salvo opt-out explícito.
+    // BC aplica el SAC como H.A.C. = difNeta/2 en los meses 06 y 12, siempre.
+    // El checkbox villanustre_sac=false permite desactivarlo en casos raros.
+    const sacActivo = d.villanustre_sac !== false; // default true
+    const sac=(sacActivo&&(row2.m===6||row2.m===12))?Math.round(difNeta/2*100)/100:0;
     const subtotal=difNeta+sac;
 
     // Modo de interés según pre/post pago
